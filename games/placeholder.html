@@ -5,9 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>New Game</title>
 <style>
+  /* Mobile-safe base — keep this block the same in every game you build
+     here. It stops rubber-band bounce from dragging the whole page and
+     stops taps on buttons from being misread as scroll/zoom gestures,
+     both of which can shove game controls out from under your finger
+     on a phone. Add `button` (or whatever class your tappable pieces
+     use) to the touch-action rule below as you add controls. */
+  html {
+    height: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
+  button {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     margin: 0;
-    height: 100vh;
+    min-height: 100%;
     font-family: Arial, sans-serif;
     background: #fdf1f7;
     display: flex;
@@ -15,6 +33,10 @@
     align-items: center;
     justify-content: center;
     text-align: center;
+    padding: 16px;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    overscroll-behavior: none;
   }
   h1 { color: #7b2d8e; font-size: 2em; margin: 0 0 10px; }
   p { color: #555; max-width: 260px; }

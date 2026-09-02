@@ -5,15 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Life!</title>
 <style>
+  /* Mobile-safe base — keep this block the same across every game.
+     It stops rubber-band bounce from dragging the whole page and stops
+     taps on buttons from being misread as scroll/zoom gestures, both of
+     which can shove game controls out from under your finger on a phone. */
+  html {
+    height: 100%;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
+  button, .dot, .optionBtn, .trayItem, .chip {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     margin: 0;
+    min-height: 100%;
     font-family: Arial, sans-serif;
     background: #fdf1f7;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 16px;
+    box-sizing: border-box;
     overflow-x: hidden;
+    overscroll-behavior: none;
   }
   h1 { color: #7b2d8e; font-size: 1.4em; margin: 6px 0; }
   #stage {
@@ -181,10 +200,14 @@
   .furn.picked .removeBtn { display: flex; }
   .tray {
     display: flex;
+    width: 100%;
+    box-sizing: border-box;
     gap: 8px;
     overflow-x: auto;
     padding: 4px 2px;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
   }
   .trayItem {
     flex: 0 0 auto;

@@ -10,6 +10,9 @@
     height: 100%;
     font-family: Arial, sans-serif;
     background: #fdf1f7;
+    overflow: hidden;
+    overflow-x: hidden;
+    overscroll-behavior: none;
   }
   #layout {
     display: flex;
@@ -40,6 +43,10 @@
     font-weight: bold;
     font-size: 0.95em;
     cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
   .gameBtn.active {
     background: #ff7aa2;
@@ -58,6 +65,8 @@
       flex-direction: row;
       align-items: center;
       overflow-x: auto;
+      touch-action: pan-x;
+      overscroll-behavior-x: contain;
     }
     #sidebar h1 { display: none; }
   }
