@@ -104,6 +104,49 @@
       return b.getAttribute('data-src') === lastGame;
     }) || buttons[0];
     loadGame(startBtn);
+
+    // Auto-refresh when a new version is deployed. We ask the server for
+    // just the headers (HEAD, no body) of index.html and the game that's
+    // currently open, and compare a fingerprint of those headers to what
+    // we saw last time. cache: 'no-store' is what makes this see a fresh
+    // deploy instead of an old cached answer.
+    var knownSignatures = {};
+
+    function fileSignature(url) {
+      return fetch(url, { method: 'HEAD', cache: 'no-store' })
+        .then(function (res) {
+          return res.headers.get('etag') ||
+            res.headers.get('last-modified') ||
+            res.headers.get('content-length');
+        })
+        .catch(function () { return null; });
+    }
+
+    function checkOne(url, onChanged) {
+      fileSignature(url).then(function (sig) {
+        if (!sig) return;
+        if (knownSignatures[url] === undefined) {
+          knownSignatures[url] = sig;
+        } else if (sig !== knownSignatures[url]) {
+          knownSignatures[url] = sig;
+          onChanged();
+        }
+      });
+    }
+
+    function checkForUpdates() {
+      checkOne('index.html', function () { location.reload(); });
+      var activeSrc = frame.getAttribute('src');
+      if (activeSrc) {
+        checkOne(activeSrc, function () {
+          // A plain frame.src = activeSrc re-assignment doesn't reload
+          // when the value hasn't changed, so add a cache-busting param.
+          frame.src = activeSrc.split('?')[0] + '?r=' + Date.now();
+        });
+      }
+    }
+
+    setInterval(checkForUpdates, 20000);
   </script>
 </body>
 </html>
