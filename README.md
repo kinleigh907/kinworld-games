@@ -1,4 +1,4 @@
-# Runway Star!
+# Life!
 
 A single-file HTML/CSS/JS life-sim game — decorate your house, drive around the neighborhood, visit friends, go to work, and go to school.
 
