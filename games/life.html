@@ -1,0 +1,2577 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Life!</title>
+<style>
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #fdf1f7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    overflow-x: hidden;
+  }
+  h1 { color: #7b2d8e; font-size: 1.4em; margin: 6px 0; }
+  #stage {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    padding: 10px;
+    margin-bottom: 14px;
+  }
+  .panel { width: 100%; max-width: 400px; }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 10px;
+  }
+  .label { font-weight: bold; color: #555; font-size: 0.9em; }
+  .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 240px; }
+  .dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid #ddd; cursor: pointer;
+  }
+  .dot.sel { border-color: #7b2d8e; border-width: 3px; }
+  .arrows button {
+    background: #7b2d8e; color: white; border: none;
+    width: 30px; height: 30px; border-radius: 6px; font-size: 14px;
+  }
+  .actions { display: flex; gap: 10px; margin-top: 6px; }
+  .actions button {
+    flex: 1; padding: 12px; border: none; border-radius: 10px;
+    color: white; font-weight: bold; font-size: 1em;
+  }
+
+  .runway-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    width: 100%;
+  }
+  .runway-actions button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-weight: bold;
+  }
+  #again { background: #7b2d8e; }
+  #encore, #workBackBtn { background: #ff7aa2; }
+  #ringBtn { background: #7b2d8e; }
+  .optionBtn {
+    background: #7b2d8e;
+    border: 2px solid #5a1d68;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-weight: bold;
+    color: white;
+    font-size: 0.9em;
+    text-align: left;
+    box-shadow: 0 3px 0 #4a1650;
+  }
+  .optionBtn:active {
+    background: #5a1d68;
+    transform: translateY(2px);
+    box-shadow: none;
+  }
+  #tohouse { background: #4fbf9f; margin-top: 10px; width: 100%; padding: 12px; border: none; border-radius: 10px; color: white; font-weight: bold; }
+
+  /* House screen */
+  #houseScreen {
+    display: none;
+    width: 100%;
+    max-width: 420px;
+    flex-direction: column;
+    align-items: center;
+  }
+  #houseBox {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+  #wall {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 68%;
+  }
+  #floor {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%;
+    height: 32%;
+  }
+  #houseChar {
+    position: absolute;
+    top: 60%;
+    left: 50%;
+    width: 90px;
+    height: 105px;
+    margin-left: -45px;
+    margin-top: -90px;
+    z-index: 5;
+    transition: left 0.35s linear, top 0.35s linear;
+    pointer-events: none;
+  }
+  .kid {
+    position: absolute;
+    width: 46px;
+    height: 54px;
+    margin-left: -23px;
+    margin-top: -48px;
+    z-index: 4;
+    transition: left 0.45s ease-out, top 0.45s ease-out;
+    pointer-events: none;
+  }
+  #dpad, #dpadFriend, #dpadWork, #dpadSchool, #dpadOffice {
+    display: grid;
+    grid-template-columns: 44px 44px 44px;
+    grid-template-rows: 44px 44px 44px;
+    gap: 4px;
+    margin-top: 12px;
+    justify-content: center;
+  }
+  #dpad button, #dpadFriend button, #dpadWork button, #dpadSchool button, #dpadOffice button {
+    background: #7b2d8e;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  #dpad .empty, #dpadFriend .empty, #dpadWork .empty, #dpadSchool .empty, #dpadOffice .empty { visibility: hidden; }
+  .furn {
+    position: absolute;
+    z-index: 3;
+    cursor: grab;
+    touch-action: none;
+  }
+  .furn.dragging {
+    z-index: 20;
+    opacity: 0.85;
+    filter: drop-shadow(0 6px 8px rgba(0,0,0,0.35));
+  }
+  .furn .removeBtn {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 22px;
+    height: 22px;
+    background: #ff4d4d;
+    color: white;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: bold;
+    z-index: 21;
+  }
+  .furn.picked .removeBtn { display: flex; }
+  .tray {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trayItem {
+    flex: 0 0 auto;
+    width: 52px;
+    height: 52px;
+    background: #f5eefa;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    position: relative;
+    cursor: pointer;
+  }
+  .trayItem.on {
+    border-color: #4fbf9f;
+    background: #e6f9f3;
+  }
+  .trayItem .check {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    background: #4fbf9f;
+    color: white;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+  }
+  .trayItem.on .check { display: flex; }
+  .trayItem svg { width: 100%; height: 100%; object-fit: contain; }
+  .priceTag {
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff3b0;
+    border: 1.5px solid #e0c34a;
+    color: #7a5c00;
+    font-size: 0.68em;
+    font-weight: bold;
+    border-radius: 8px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  #shopMsg {
+    display: none;
+    background: #ffe0e0;
+    color: #a13a3a;
+    border: 2px solid #ff9999;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.85em;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 6px;
+  }
+  .tray-label { font-size: 0.8em; color: #888; margin-top: -4px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    padding: 6px 12px;
+    border-radius: 14px;
+    border: 2px solid #ddd;
+    background: white;
+    font-size: 0.85em;
+    cursor: pointer;
+    color: #555;
+  }
+  .chip.on {
+    background: #7b2d8e;
+    color: white;
+    border-color: #7b2d8e;
+  }
+
+  /* Neighborhood / driving screen */
+  #neighborhoodScreen, #friendHouseScreen, #workScreen, #schoolScreen, #realtyScreen, #careersScreen, #officeScreen {
+    display: none;
+    width: 100%;
+    max-width: 420px;
+    flex-direction: column;
+    align-items: center;
+  }
+  #roadBox {
+    position: relative;
+    width: 100%;
+    height: 340px;
+    background: linear-gradient(180deg, #bfe8ff 0%, #bfe8ff 55%, #8fce6a 55%, #8fce6a 100%);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+  }
+  #roadPath {
+    position: absolute;
+    left: 0; top: 0; width: 100%; height: 100%;
+  }
+  .houseMarker {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    margin-left: -30px;
+    margin-top: -50px;
+    text-align: center;
+    z-index: 2;
+  }
+  .houseMarker .doorLabel {
+    font-size: 0.7em;
+    font-weight: bold;
+    color: #5a3d1f;
+    background: rgba(255,255,255,0.85);
+    border-radius: 8px;
+    padding: 1px 6px;
+    margin-top: 2px;
+    display: inline-block;
+  }
+  #car {
+    position: absolute;
+    width: 64px;
+    height: 40px;
+    margin-left: -32px;
+    margin-top: -20px;
+    z-index: 5;
+    transition: left 0.3s linear, top 0.3s linear;
+  }
+  #drivepad {
+    display: grid;
+    grid-template-columns: 44px 44px 44px;
+    grid-template-rows: 44px 44px 44px;
+    gap: 4px;
+    margin-top: 12px;
+    justify-content: center;
+  }
+  #drivepad button {
+    background: #4fbf9f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  #drivepad .empty { visibility: hidden; }
+  #arriveMsg {
+    color: #7b2d8e;
+    font-weight: bold;
+    text-align: center;
+    min-height: 20px;
+    margin-top: 8px;
+  }
+
+  /* Persistent top nav */
+  body { padding-top: 100px; }
+  #topNav {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 6px;
+    z-index: 100;
+    box-sizing: border-box;
+  }
+  #topNav button {
+    flex: 1;
+    max-width: 100px;
+    background: #f5eefa;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 6px 2px;
+    font-size: 0.72em;
+    font-weight: bold;
+    color: #555;
+  }
+  #topNav button.active {
+    background: #7b2d8e;
+    border-color: #7b2d8e;
+    color: white;
+  }
+  #moneyBadge {
+    flex: 0 0 auto;
+    background: #fff3b0;
+    border: 2px solid #e0c34a;
+    border-radius: 10px;
+    padding: 6px 10px;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: #7a5c00;
+    display: flex;
+    align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<div id="debugBox" style="display:none; position:fixed; bottom:0; left:0; width:100%; background:#ff4d4d; color:white; font-size:0.75em; padding:8px; z-index:999; box-sizing:border-box; word-break:break-word;"></div>
+
+<div id="topNav">
+  <button id="nav-house" onclick="tapFlash('House'); navHouse()">🏠 House</button>
+  <button id="nav-drive" onclick="tapFlash('Drive'); navDrive()">🚗 Drive</button>
+  <button id="kidToggle" class="active" onclick="toggleKidFollow()">🧒 Kid: On</button>
+  <button id="timeToggle" onclick="toggleTimeOfDay()">☀️ Day</button>
+  <div id="moneyBadge">💰 $0</div>
+</div>
+
+<h1>Life!</h1>
+<div style="font-size:0.7em; color:#aaa; margin-bottom:6px;">version: kinleigh-v5 (deploy test)</div>
+
+<div id="houseScreen">
+  <div id="houseBox">
+    <svg id="wall" viewBox="0 0 400 220" preserveAspectRatio="none"></svg>
+    <svg id="floor" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
+    <div id="furniture"></div>
+    <svg id="houseChar" viewBox="0 0 180 210"></svg>
+    <svg id="kidHouse" class="kid" viewBox="0 0 60 70"></svg>
+    <div id="nightOverlay" style="position:absolute; inset:0; background:rgba(20,20,70,0.4); pointer-events:none; z-index:3; display:none;"></div>
+    <div id="sleepOverlay" style="position:absolute; inset:0; background:#1a1a2e; z-index:50; display:none; align-items:center; justify-content:center; flex-direction:column; color:white;">
+      <div style="font-size:2.2em;">💤</div>
+      <div style="font-weight:bold; margin-top:6px;">Zzz... sleeping...</div>
+    </div>
+    <div id="wakeOverlay" style="position:absolute; inset:0; z-index:51; display:none; pointer-events:none;">
+      <div id="lidTop" style="position:absolute; top:0; left:0; width:100%; height:50%; background:#1a1a2e; transform-origin:top; transition: transform 1s ease-in-out;"></div>
+      <div id="lidBottom" style="position:absolute; bottom:0; left:0; width:100%; height:50%; background:#1a1a2e; transform-origin:bottom; transition: transform 1s ease-in-out;"></div>
+      <div id="wakeText" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:white; font-weight:bold; font-size:1.1em; opacity:0; transition: opacity 0.4s;">☀️ Good morning!</div>
+    </div>
+    <div id="tvOverlay" style="position:absolute; left:50%; top:30%; transform:translateX(-50%); width:150px; height:110px; z-index:20; display:none; background:#222; border-radius:8px; border:6px solid #444; overflow:hidden; align-items:center; justify-content:center; flex-direction:column; color:white; text-align:center;">
+      <div id="tvScreenColor" style="position:absolute; inset:0;"></div>
+      <div style="position:relative; font-size:0.75em; font-weight:bold; padding:6px;">📺 Watching TV...</div>
+    </div>
+  </div>
+
+  <div id="dpad">
+    <div class="empty"></div>
+    <button onclick="moveChar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveChar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveChar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveChar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+
+  <button id="tohouse" onclick="navDrive()">🚗 Drive to Friends' Houses</button>
+
+  <div class="panel">
+    <div class="row">
+      <span class="label">Wall Color</span>
+      <div class="dots" id="wallDots"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Wallpaper</span>
+      <div class="chips" id="wallPatternChips"></div>
+    </div>
+    <div class="row">
+      <span class="label">Floor Color</span>
+      <div class="dots" id="floorDots"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:6px;">
+      <span class="label">🛍️ Furniture Shop — tap to buy & add, drag in room to move, tap × to remove</span>
+      <div class="tray" id="furnTray"></div>
+      <div id="shopMsg"></div>
+    </div>
+  </div>
+</div>
+
+<div id="neighborhoodScreen">
+  <div id="roadBox">
+    <svg id="roadPath" viewBox="0 0 400 340" preserveAspectRatio="none"></svg>
+    <div class="houseMarker" id="marker-home" style="left:50%; top:78%;">
+      <div>🏠</div>
+      <div class="doorLabel">My House</div>
+    </div>
+    <div class="houseMarker" id="marker-mia" style="left:18%; top:40%;">
+      <div>🏡</div>
+      <div class="doorLabel">Mia's</div>
+    </div>
+    <div class="houseMarker" id="marker-sam" style="left:80%; top:28%;">
+      <div>🏘️</div>
+      <div class="doorLabel">Sam's</div>
+    </div>
+    <div class="houseMarker" id="marker-shop" style="left:30%; top:14%;">
+      <div>🏪</div>
+      <div class="doorLabel">Shop</div>
+    </div>
+    <div class="houseMarker" id="marker-work" style="left:62%; top:60%;">
+      <div id="marker-work-icon">🏢</div>
+      <div class="doorLabel" id="marker-work-label">Work</div>
+    </div>
+    <div class="houseMarker" id="marker-school" style="left:8%; top:70%;">
+      <div>🏫</div>
+      <div class="doorLabel">School</div>
+    </div>
+    <div class="houseMarker" id="marker-realty" style="left:44%; top:18%;">
+      <div>🏘️</div>
+      <div class="doorLabel">Realty</div>
+    </div>
+    <div class="houseMarker" id="marker-careers" style="left:92%; top:50%;">
+      <div>💼</div>
+      <div class="doorLabel">Careers</div>
+    </div>
+    <svg id="car" viewBox="0 0 64 40"></svg>
+  </div>
+  <div id="arriveMsg">&nbsp;</div>
+  <div id="drivepad">
+    <div class="empty"></div>
+    <button onclick="moveCar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveCar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveCar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveCar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+  <button id="tohouse" onclick="navHouse()">Back Home</button>
+</div>
+
+<div id="friendHouseScreen">
+  <div id="stage">
+    <div id="friendName" style="text-align:center; font-weight:bold; color:#7b2d8e; margin-bottom:6px;"></div>
+  </div>
+  <div id="houseBoxFriend" style="position:relative; width:100%; max-width:400px; height:300px; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.2);">
+    <svg id="wallFriend" viewBox="0 0 400 220" preserveAspectRatio="none" style="position:absolute; top:0; left:0; width:100%; height:68%;"></svg>
+    <svg id="floorFriend" viewBox="0 0 400 100" preserveAspectRatio="none" style="position:absolute; bottom:0; left:0; width:100%; height:32%;"></svg>
+    <div id="furnitureFriend"></div>
+    <svg id="charFriend" viewBox="0 0 180 210" style="position:absolute; width:90px; height:105px; margin-left:-45px; margin-top:-90px; z-index:5; transition: left 0.35s linear, top 0.35s linear; pointer-events:none;"></svg>
+    <svg id="kidFriend" class="kid" viewBox="0 0 60 70"></svg>
+  </div>
+  <div id="dpadFriend">
+    <div class="empty"></div>
+    <button onclick="moveFriendChar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveFriendChar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveFriendChar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveFriendChar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+  <button id="tohouse" onclick="leaveFriendHouse()">Back to the Car</button>
+</div>
+
+<div id="workScreen">
+  <div id="jobTitleBadge" style="text-align:center; font-weight:bold; color:#7b2d8e; background:#fff3b0; border:2px solid #e0c34a; border-radius:12px; padding:6px 10px; margin-bottom:8px; max-width:400px;">👔 Cashier</div>
+  <div id="workBox" style="position:relative; width:100%; max-width:400px; height:300px; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.2); background:linear-gradient(180deg, #cfe8f7 0%, #cfe8f7 65%, #d8cba8 65%, #d8cba8 100%);">
+    <div id="doorFrame" style="position:absolute; left:-1%; top:3%; width:42px; height:186px; z-index:4; perspective:260px;">
+      <div style="position:absolute; inset:0; background:#3d2b1f; border-radius:2px;"></div>
+      <div id="doorPanel" style="position:absolute; left:0; top:0; width:42px; height:186px; background:linear-gradient(90deg,#a3714a,#8a5a38); border:3px solid #6b4423; border-radius:2px; box-sizing:border-box; transform-origin:left center; transition: transform 0.5s ease; transform: rotateY(0deg); backface-visibility:hidden;">
+        <div style="position:absolute; right:6px; top:48%; width:6px; height:6px; border-radius:50%; background:#ffd93d;"></div>
+      </div>
+    </div>
+    <div id="shelfLeft" style="position:absolute; left:2%; top:14%; width:70px; height:150px; z-index:2;">
+      <svg viewBox="0 0 70 150" width="100%" height="100%">
+        <rect x="0" y="0" width="70" height="150" fill="#a3714a"/>
+        <rect x="4" y="6" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="52" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="98" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="144" width="62" height="6" fill="#7a5535"/>
+        <rect x="8" y="14" width="14" height="16" rx="2" fill="#ff6b6b"/>
+        <rect x="26" y="14" width="14" height="16" rx="2" fill="#54a0ff"/>
+        <rect x="44" y="14" width="14" height="16" rx="2" fill="#ffe66d"/>
+        <rect x="8" y="60" width="14" height="16" rx="2" fill="#a78bfa"/>
+        <rect x="26" y="60" width="14" height="16" rx="2" fill="#4ecdc4"/>
+        <rect x="44" y="60" width="14" height="16" rx="2" fill="#ff9f43"/>
+        <rect x="8" y="106" width="14" height="16" rx="2" fill="#e07a9e"/>
+        <rect x="26" y="106" width="14" height="16" rx="2" fill="#54a0ff"/>
+        <rect x="44" y="106" width="14" height="16" rx="2" fill="#ffe66d"/>
+      </svg>
+    </div>
+    <div id="shelfRight" style="position:absolute; right:2%; top:14%; width:70px; height:150px; z-index:2;">
+      <svg viewBox="0 0 70 150" width="100%" height="100%">
+        <rect x="0" y="0" width="70" height="150" fill="#a3714a"/>
+        <rect x="4" y="6" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="52" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="98" width="62" height="6" fill="#7a5535"/>
+        <rect x="4" y="144" width="62" height="6" fill="#7a5535"/>
+        <rect x="8" y="14" width="14" height="16" rx="2" fill="#4ecdc4"/>
+        <rect x="26" y="14" width="14" height="16" rx="2" fill="#ff9f43"/>
+        <rect x="44" y="14" width="14" height="16" rx="2" fill="#e07a9e"/>
+        <rect x="8" y="60" width="14" height="16" rx="2" fill="#ffe66d"/>
+        <rect x="26" y="60" width="14" height="16" rx="2" fill="#a78bfa"/>
+        <rect x="44" y="60" width="14" height="16" rx="2" fill="#54a0ff"/>
+        <rect x="8" y="106" width="14" height="16" rx="2" fill="#ff6b6b"/>
+        <rect x="26" y="106" width="14" height="16" rx="2" fill="#4ecdc4"/>
+        <rect x="44" y="106" width="14" height="16" rx="2" fill="#ffe66d"/>
+      </svg>
+    </div>
+    <div id="registerSpot" style="position:absolute; left:50%; top:70%; transform:translateX(-50%); width:130px; height:70px; cursor:pointer; z-index:10;">
+      <svg viewBox="0 0 130 70" width="100%" height="100%">
+        <rect x="0" y="34" width="130" height="30" rx="4" fill="#a3714a"/>
+        <rect x="30" y="6" width="70" height="34" rx="4" fill="#e0e0e0"/>
+        <rect x="36" y="12" width="58" height="14" fill="#5db3e0"/>
+        <rect x="40" y="30" width="10" height="6" fill="#333"/>
+        <rect x="54" y="30" width="10" height="6" fill="#333"/>
+        <rect x="68" y="30" width="10" height="6" fill="#333"/>
+        <rect x="82" y="30" width="10" height="6" fill="#333"/>
+        <rect x="46" y="40" width="38" height="8" fill="#ffd93d"/>
+      </svg>
+    </div>
+    <div id="conveyorBelt" style="position:absolute; left:50%; top:60%; transform:translateX(-50%); width:150px; height:22px; z-index:9; background:repeating-linear-gradient(115deg, #b0885a 0 10px, #97714a 10px 20px); border-radius:4px; box-shadow:inset 0 2px 4px rgba(0,0,0,0.3); display:none;"></div>
+    <div id="beltItems" style="position:absolute; left:50%; top:60%; transform:translateX(-50%); width:150px; height:40px; z-index:11; margin-top:-30px; display:none;"></div>
+    <div id="scanFlash" style="position:absolute; left:50%; top:60%; transform:translateX(-50%); width:60px; height:60px; margin-top:-30px; z-index:12; border-radius:50%; background:rgba(79,191,159,0.6); display:none; pointer-events:none;"></div>
+    <div id="speechBubble" style="position:absolute; left:50%; top:6%; transform:translateX(-50%); width:230px; z-index:11; display:none; background:white; border:3px solid #7b2d8e; border-radius:14px; padding:8px 12px; font-size:0.8em; font-weight:bold; color:#333; text-align:center; box-shadow:0 3px 8px rgba(0,0,0,0.2);"></div>
+    <svg id="charWork" viewBox="0 0 180 210" style="position:absolute; width:90px; height:105px; margin-left:-45px; margin-top:-90px; z-index:5; transition: left 0.35s linear, top 0.35s linear; pointer-events:none;"></svg>
+    <svg id="kidWork" class="kid" viewBox="0 0 60 70"></svg>
+    <svg id="customerWork" viewBox="0 0 60 80" style="position:absolute; top:60%; width:60px; height:80px; margin-left:-30px; margin-top:-40px; z-index:6; left:-20%; transition: left 1.1s ease-in-out, top 1.1s ease-in-out, opacity 0.4s ease-in-out; opacity:0;"></svg>
+    <svg id="cashierAtRegister" viewBox="0 0 56 80" style="position:absolute; left:50%; top:56%; width:56px; height:80px; margin-left:14px; margin-top:-70px; z-index:7; display:none;"></svg>
+  </div>
+  <div id="dpadWork">
+    <div class="empty"></div>
+    <button onclick="moveWorkChar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveWorkChar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveWorkChar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveWorkChar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+  <div id="workCaption" style="color:#7b2d8e; text-align:center; font-weight:bold; margin-top:8px; min-height:20px;">Tap the register to open the store!</div>
+  <div class="runway-actions">
+    <button id="ringBtn" onclick="ringRegister()">🛎️ Ring Up a Sale!</button>
+    <div id="answerOptionsWrap" style="display:none; margin-top:8px; background:#fff3b0; border:3px solid #e0c34a; border-radius:14px; padding:10px;">
+      <div style="text-align:center; font-weight:bold; color:#7a5c00; margin-bottom:6px; font-size:0.85em;">💬 What do you say?</div>
+      <div id="answerOptions" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <div id="feedbackOptionsWrap" style="display:none; margin-top:8px; background:#fff3b0; border:3px solid #e0c34a; border-radius:14px; padding:10px;">
+      <div style="text-align:center; font-weight:bold; color:#7a5c00; margin-bottom:6px; font-size:0.85em;">💬 What do you say to them?</div>
+      <div id="feedbackOptions" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <button id="workBackBtn" onclick="navDrive()">Back to the Car</button>
+  </div>
+</div>
+
+<div id="officeScreen">
+  <div id="jobTitleBadgeOffice" style="text-align:center; font-weight:bold; color:#7b2d8e; background:#fff3b0; border:2px solid #e0c34a; border-radius:12px; padding:6px 10px; margin-bottom:8px; max-width:400px;">👔 Manager</div>
+  <div id="officeBox" style="position:relative; width:100%; max-width:400px; height:300px; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.2); background:linear-gradient(180deg, #e8ddc8 0%, #e8ddc8 65%, #b89968 65%, #b89968 100%);">
+    <div id="doorFrameOffice" style="position:absolute; left:-1%; top:3%; width:42px; height:186px; z-index:9; perspective:260px; cursor:pointer;">
+      <div style="position:absolute; inset:0; background:#3d2b1f; border-radius:2px;"></div>
+      <div id="doorPanelOffice" style="position:absolute; left:0; top:0; width:42px; height:186px; background:linear-gradient(90deg,#8a6a4a,#6b4f30); border:3px solid #4f381f; border-radius:2px; box-sizing:border-box; transform-origin:left center; transition: transform 0.5s ease; transform: rotateY(0deg); backface-visibility:hidden;">
+        <div style="position:absolute; right:6px; top:48%; width:6px; height:6px; border-radius:50%; background:#ffd93d;"></div>
+      </div>
+    </div>
+    <div style="position:absolute; left:50%; top:10%; transform:translateX(-50%); width:90px; height:40px; z-index:2;">
+      <svg viewBox="0 0 90 40" width="100%" height="100%">
+        <rect x="0" y="0" width="90" height="40" fill="#f5eedc" stroke="#c9a24a" stroke-width="3"/>
+        <text x="45" y="18" font-size="8" text-anchor="middle" fill="#7a5c00" font-weight="bold">EMPLOYEE OF</text>
+        <text x="45" y="30" font-size="8" text-anchor="middle" fill="#7a5c00" font-weight="bold">THE MONTH</text>
+      </svg>
+    </div>
+    <div id="officeDeskSpot" style="position:absolute; left:50%; top:70%; transform:translateX(-50%); width:140px; height:66px; cursor:pointer; z-index:10;">
+      <svg viewBox="0 0 140 66" width="100%" height="100%">
+        <rect x="0" y="30" width="140" height="30" rx="4" fill="#6b4423"/>
+        <rect x="0" y="30" width="140" height="6" fill="#8a5a38"/>
+        <rect x="10" y="36" width="30" height="20" fill="#4f381f"/>
+        <rect x="100" y="36" width="30" height="20" fill="#4f381f"/>
+        <rect x="55" y="4" width="30" height="26" fill="#e0e0e0"/>
+        <rect x="58" y="7" width="24" height="18" fill="#5db3e0"/>
+        <rect x="20" y="20" width="18" height="10" fill="#fff"/>
+      </svg>
+    </div>
+    <div id="speechBubbleOffice" style="position:absolute; left:50%; top:6%; transform:translateX(-50%); width:230px; z-index:11; display:none; background:white; border:3px solid #7b2d8e; border-radius:14px; padding:8px 12px; font-size:0.8em; font-weight:bold; color:#333; text-align:center; box-shadow:0 3px 8px rgba(0,0,0,0.2);"></div>
+    <svg id="charOffice" viewBox="0 0 180 210" style="position:absolute; width:90px; height:105px; margin-left:-45px; margin-top:-90px; z-index:5; transition: left 0.35s linear, top 0.35s linear; pointer-events:none;"></svg>
+    <svg id="kidOffice" class="kid" viewBox="0 0 60 70"></svg>
+    <svg id="customerOffice" viewBox="0 0 60 80" style="position:absolute; top:60%; width:60px; height:80px; margin-left:-30px; margin-top:-40px; z-index:6; left:-20%; transition: left 1.1s ease-in-out, top 1.1s ease-in-out, opacity 0.4s ease-in-out; opacity:0;"></svg>
+    <svg id="helpItemIcon" viewBox="0 0 40 40" style="position:absolute; top:22%; left:50%; transform:translateX(-50%); width:40px; height:40px; z-index:12; display:none;"></svg>
+  </div>
+  <div id="dpadOffice">
+    <div class="empty"></div>
+    <button onclick="moveOfficeChar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveOfficeChar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveOfficeChar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveOfficeChar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+  <div id="officeCaption" style="color:#7b2d8e; text-align:center; font-weight:bold; margin-top:8px; min-height:20px;">Sit at your desk and wait for a customer to come with a complaint.</div>
+  <div class="runway-actions">
+    <button id="officeBtn" onclick="callInComplaint()">🔔 Call In a Customer</button>
+    <div id="officeOptionsWrap" style="display:none; margin-top:8px; background:#fff3b0; border:3px solid #e0c34a; border-radius:14px; padding:10px;">
+      <div style="text-align:center; font-weight:bold; color:#7a5c00; margin-bottom:6px; font-size:0.85em;">💬 How do you respond?</div>
+      <div id="officeOptions" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+    <button id="walkToStoreBtn" onclick="goToStoreAsManager()" style="background:#4a90d9;">🚪 Walk Out to the Store</button>
+    <button id="officeEncore" onclick="navDrive()">Back to the Car</button>
+  </div>
+</div>
+
+<div id="schoolScreen">
+  <div id="schoolBox" style="position:relative; width:100%; max-width:400px; height:300px; border-radius:16px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.2); background:linear-gradient(180deg, #fff3c4 0%, #fff3c4 65%, #e0c9a0 65%, #e0c9a0 100%);">
+    <div style="position:absolute; left:50%; top:35%; transform:translateX(-50%); width:130px; height:70px;">
+      <svg viewBox="0 0 130 70" width="100%" height="100%">
+        <rect x="0" y="20" width="130" height="10" fill="#2d7a4a"/>
+        <rect x="10" y="0" width="30" height="20" fill="#2d2d2d"/>
+        <rect x="12" y="2" width="26" height="16" fill="#bfe3f2"/>
+        <rect x="55" y="0" width="30" height="20" fill="#2d2d2d"/>
+        <rect x="57" y="2" width="26" height="16" fill="#bfe3f2"/>
+        <rect x="90" y="0" width="30" height="20" fill="#2d2d2d"/>
+        <rect x="92" y="2" width="26" height="16" fill="#bfe3f2"/>
+      </svg>
+    </div>
+    <svg id="charSchool" viewBox="0 0 180 210" style="position:absolute; width:90px; height:105px; margin-left:-45px; margin-top:-90px; z-index:5; transition: left 0.35s linear, top 0.35s linear; pointer-events:none;"></svg>
+    <svg id="kidSchool" class="kid" viewBox="0 0 60 70"></svg>
+  </div>
+  <div id="dpadSchool">
+    <div class="empty"></div>
+    <button onclick="moveSchoolChar(0,-1)">&#9650;</button>
+    <div class="empty"></div>
+    <button onclick="moveSchoolChar(-1,0)">&#9664;</button>
+    <div class="empty"></div>
+    <button onclick="moveSchoolChar(1,0)">&#9654;</button>
+    <div class="empty"></div>
+    <button onclick="moveSchoolChar(0,1)">&#9660;</button>
+    <div class="empty"></div>
+  </div>
+  <div id="schoolCaption" style="color:#7b2d8e; text-align:center; font-weight:bold; margin-top:8px; min-height:20px;">&nbsp;</div>
+  <div class="runway-actions">
+    <button id="again" onclick="schoolAgain()">Do Another Activity</button>
+    <button id="encore" onclick="navDrive()">Back to the Car</button>
+  </div>
+</div>
+
+<div id="realtyScreen">
+  <div id="realtyBox" style="width:100%; max-width:400px; background:white; border-radius:16px; box-shadow:0 4px 14px rgba(0,0,0,0.2); padding:16px; box-sizing:border-box;">
+    <div style="text-align:center; font-size:2.2em;">🏘️</div>
+    <div style="text-align:center; font-weight:bold; color:#7b2d8e; font-size:1.1em; margin-bottom:4px;">Realty Office</div>
+    <div id="currentHouseTier" style="text-align:center; color:#555; margin-bottom:12px;"></div>
+    <div id="nextHouseTierCard" style="background:#fff3f8; border:2px solid #e0a8c8; border-radius:12px; padding:12px; text-align:center;"></div>
+    <button id="buyHouseBtn" onclick="buyHouseUpgrade()" style="width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px; background:#7b2d8e; color:white; font-weight:bold;">Buy Upgrade</button>
+    <div id="realtyMsg" style="display:none; margin-top:8px; background:#ffe0e0; color:#a13a3a; border:2px solid #ff9999; border-radius:10px; padding:8px; text-align:center; font-size:0.85em; font-weight:bold;"></div>
+  </div>
+  <button id="tohouse" onclick="navDrive()">Back to the Car</button>
+</div>
+
+<div id="careersScreen">
+  <div id="careersBox" style="width:100%; max-width:400px; background:white; border-radius:16px; box-shadow:0 4px 14px rgba(0,0,0,0.2); padding:16px; box-sizing:border-box;">
+    <div style="text-align:center; font-size:2.2em;">💼</div>
+    <div style="text-align:center; font-weight:bold; color:#7b2d8e; font-size:1.1em; margin-bottom:4px;">Career Center</div>
+    <div id="currentJobTier" style="text-align:center; color:#555; margin-bottom:12px;"></div>
+    <div id="nextJobTierCard" style="background:#fff3f8; border:2px solid #e0a8c8; border-radius:12px; padding:12px; text-align:center;"></div>
+    <button id="applyJobBtn" onclick="applyForJob()" style="width:100%; margin-top:12px; padding:12px; border:none; border-radius:10px; background:#4fbf9f; color:white; font-weight:bold;">Apply Now</button>
+    <div id="careersMsg" style="display:none; margin-top:8px; background:#ffe0e0; color:#a13a3a; border:2px solid #ff9999; border-radius:10px; padding:8px; text-align:center; font-size:0.85em; font-weight:bold;"></div>
+  </div>
+  <button id="tohouse" onclick="navDrive()">Back to the Car</button>
+</div>
+
+<script>
+window.addEventListener('error', function(e){
+  var box = document.getElementById('debugBox');
+  box.style.display = 'block';
+  box.style.background = '#ff4d4d';
+  box.textContent = 'Error: ' + e.message + ' (line ' + e.lineno + ')';
+});
+
+function tapFlash(name){
+  var box = document.getElementById('debugBox');
+  box.style.display = 'block';
+  box.style.background = '#4fbf9f';
+  box.textContent = 'Tapped: ' + name + '...';
+  setTimeout(function(){
+    if(box.textContent === 'Tapped: ' + name + '...'){
+      box.style.display = 'none';
+    }
+  }, 1200);
+}
+
+var skins = ['#ffe0bd','#e0ac69','#8d5524','#f1c27d','#c68642','#ffd9c9'];
+var hairColors = ['#3b2417','#000000','#e94f9c','#4a90d9','#f4c542','#8e44ad','#e0e0e0','#a0522d'];
+var outfits = ['#ff6b6b','#4ecdc4','#a78bfa','#ffe66d','#ff9f43','#54a0ff','#1dd1a1','#f368e0'];
+var hairStyles = ['short','pony','bald','spiky','curly','buns'];
+var eyeStyles = ['round','happy','wide','wink'];
+var outfitStyles = ['dress','shirt','jumpsuit','gown','skirt'];
+var patterns = ['plain','stripes','dots','stars'];
+var accessories = ['none','glasses','bow','hat','flower'];
+
+var s = { skin:0, hairColor:0, hair:0, eyes:0, outfit:0, outfitStyle:0, pattern:0, accessory:0 };
+
+var wallColors = ['#ffe9c7','#c9f0ff','#d9f2d0','#ffd6e8','#e6dcff','#fff3b0'];
+var floorColors = ['#c9975b','#e8c39e','#b0b0b0','#8d6e4f','#f0e0c0','#a3c9a8'];
+var h = { wall:0, floor:0, wallPattern:0, charX:50, charY:65, facing:1, furniture:{} };
+var wallPatterns = ['plain','stripes','dots'];
+
+var houseTiers = [
+  { name: 'Starter Home', cost: 0, extraWall: [], extraFloor: [], glow: '0 4px 14px rgba(0,0,0,0.2)' },
+  { name: 'Cozy Cottage', cost: 80, extraWall: ['#ffb3c6','#b3e0ff'], extraFloor: ['#8a5a38','#e6c9a8'], glow: '0 0 0 4px #ffd93d, 0 4px 14px rgba(0,0,0,0.2)' },
+  { name: 'Modern Home', cost: 250, extraWall: ['#c8b6ff','#a0e8d8'], extraFloor: ['#4a4a4a','#f7e8c8'], glow: '0 0 0 4px #54a0ff, 0 4px 18px rgba(0,0,0,0.3)' },
+  { name: 'Luxury Mansion', cost: 600, extraWall: ['#ffd700','#ff9ff3'], extraFloor: ['#2d1a0f','#ffffff'], glow: '0 0 0 5px #ff6b6b, 0 0 24px rgba(255,215,0,0.6), 0 4px 20px rgba(0,0,0,0.35)' }
+];
+var houseTier = 0;
+
+var jobTiers = [
+  { title: 'Cashier', requirement: 0, multiplier: 1 },
+  { title: 'Store Manager', requirement: 100, multiplier: 1.5 },
+  { title: 'Store Owner', requirement: 300, multiplier: 2 },
+  { title: 'Business Mogul', requirement: 700, multiplier: 3 }
+];
+var jobTier = 0;
+
+function getWallColors(){
+  var colors = wallColors.slice();
+  for(var i=1; i<=houseTier; i++){ colors = colors.concat(houseTiers[i].extraWall); }
+  return colors;
+}
+
+function getFloorColors(){
+  var colors = floorColors.slice();
+  for(var i=1; i<=houseTier; i++){ colors = colors.concat(houseTiers[i].extraFloor); }
+  return colors;
+}
+
+var furnitureDefs = {
+  bed:      { label:'Bed', w:80, h:46, dx:20, dy:78, svg:'<svg viewBox="0 0 80 46" width="100%" height="100%"><rect x="0" y="10" width="80" height="30" rx="6" fill="#e8768a"/><rect x="0" y="0" width="14" height="26" rx="4" fill="#c85a70"/><rect x="6" y="14" width="60" height="18" rx="3" fill="#fdf6f0"/></svg>' },
+  plant:    { label:'Plant', w:40, h:60, dx:85, dy:75, svg:'<svg viewBox="0 0 40 60" width="100%" height="100%"><path d="M20 30 Q0 20 8 0 Q20 8 20 30 Q20 8 32 0 Q40 20 20 30" fill="#4caf50"/><path d="M14 30 L26 30 L23 55 L17 55 Z" fill="#a05a2c"/></svg>' },
+  painting: { label:'Painting', w:70, h:50, dx:50, dy:22, svg:'<svg viewBox="0 0 70 50" width="100%" height="100%"><rect x="0" y="0" width="70" height="50" fill="#7b5b3f"/><rect x="5" y="5" width="60" height="40" fill="#bfe3f2"/><circle cx="50" cy="15" r="6" fill="#ffd93d"/><path d="M5 40 L25 20 L40 35 L50 25 L65 40 Z" fill="#5a8c5a"/></svg>' },
+  rug:      { label:'Rug', w:140, h:36, dx:50, dy:88, svg:'<svg viewBox="0 0 140 36" width="100%" height="100%"><ellipse cx="70" cy="18" rx="70" ry="18" fill="#e07a9e"/><ellipse cx="70" cy="18" rx="52" ry="12" fill="none" stroke="#fff" stroke-width="2" opacity="0.5"/></svg>' },
+  lamp:     { label:'Lamp', w:34, h:70, dx:90, dy:35, svg:'<svg viewBox="0 0 34 70" width="100%" height="100%"><rect x="15" y="20" width="4" height="45" fill="#8a7960"/><path d="M2 20 L32 20 L26 0 L8 0 Z" fill="#ffe9a8"/></svg>' },
+  table:    { label:'Table', w:44, h:34, dx:12, dy:66, svg:'<svg viewBox="0 0 44 34" width="100%" height="100%"><rect x="0" y="12" width="44" height="8" fill="#a3714a"/><rect x="4" y="20" width="6" height="14" fill="#8a5a38"/><rect x="34" y="20" width="6" height="14" fill="#8a5a38"/></svg>' },
+  window:   { label:'Window', w:60, h:60, dx:75, dy:18, svg:'<svg viewBox="0 0 60 60" width="100%" height="100%"><rect x="0" y="0" width="60" height="60" fill="#8a7960"/><rect x="4" y="4" width="52" height="52" fill="#bfe3f2"/><rect x="27" y="4" width="6" height="52" fill="#8a7960"/><rect x="4" y="27" width="52" height="6" fill="#8a7960"/></svg>' },
+  tv:       { label:'TV', w:64, h:42, dx:20, dy:24, svg:'<svg viewBox="0 0 64 42" width="100%" height="100%"><rect x="0" y="0" width="64" height="38" rx="3" fill="#2d2d2d"/><rect x="4" y="4" width="56" height="30" fill="#5db3e0"/><rect x="26" y="38" width="12" height="4" fill="#555"/></svg>' },
+  bookshelf:{ label:'Bookshelf', w:50, h:66, dx:6, dy:35, svg:'<svg viewBox="0 0 50 66" width="100%" height="100%"><rect x="0" y="0" width="50" height="66" fill="#8a5a38"/><rect x="3" y="4" width="44" height="18" fill="#fff3d6"/><rect x="3" y="24" width="44" height="18" fill="#fff3d6"/><rect x="3" y="44" width="44" height="18" fill="#fff3d6"/><rect x="7" y="6" width="4" height="14" fill="#e07a9e"/><rect x="13" y="6" width="4" height="14" fill="#4caf50"/><rect x="19" y="6" width="4" height="14" fill="#54a0ff"/></svg>' },
+  mirror:   { label:'Mirror', w:36, h:56, dx:94, dy:30, svg:'<svg viewBox="0 0 36 56" width="100%" height="100%"><ellipse cx="18" cy="28" rx="18" ry="27" fill="#c9a24a"/><ellipse cx="18" cy="28" rx="13" ry="22" fill="#dff2f7"/></svg>' },
+  clock:    { label:'Clock', w:32, h:32, dx:50, dy:10, svg:'<svg viewBox="0 0 32 32" width="100%" height="100%"><circle cx="16" cy="16" r="15" fill="#fff" stroke="#7b5b3f" stroke-width="2"/><line x1="16" y1="16" x2="16" y2="7" stroke="#333" stroke-width="2"/><line x1="16" y1="16" x2="22" y2="16" stroke="#333" stroke-width="2"/></svg>' },
+  couch:    { label:'Couch', w:90, h:44, dx:35, dy:70, svg:'<svg viewBox="0 0 90 44" width="100%" height="100%"><rect x="0" y="14" width="90" height="26" rx="6" fill="#54a0ff"/><rect x="0" y="0" width="14" height="30" rx="4" fill="#3d7fd1"/><rect x="76" y="0" width="14" height="30" rx="4" fill="#3d7fd1"/><rect x="6" y="18" width="34" height="14" rx="3" fill="#7fbcff"/><rect x="46" y="18" width="34" height="14" rx="3" fill="#7fbcff"/></svg>' },
+  fireplace:{ label:'Fireplace', w:56, h:50, dx:8, dy:70, svg:'<svg viewBox="0 0 56 50" width="100%" height="100%"><rect x="0" y="0" width="56" height="50" fill="#8a5a38"/><rect x="8" y="10" width="40" height="34" fill="#2d2d2d"/><path d="M20 40 Q22 28 28 30 Q30 20 36 26 Q38 32 32 40 Z" fill="#ff9f43"/></svg>' },
+  aquarium: { label:'Aquarium', w:64, h:36, dx:88, dy:62, svg:'<svg viewBox="0 0 64 36" width="100%" height="100%"><rect x="0" y="0" width="64" height="36" rx="4" fill="#4fc3d9" opacity="0.6"/><rect x="0" y="0" width="64" height="36" rx="4" fill="none" stroke="#2d8fa5" stroke-width="3"/><circle cx="20" cy="16" r="4" fill="#ff9f43"/><circle cx="42" cy="22" r="3" fill="#ffd93d"/></svg>' },
+  guitar:   { label:'Guitar', w:26, h:64, dx:97, dy:55, svg:'<svg viewBox="0 0 26 64" width="100%" height="100%"><rect x="11" y="0" width="4" height="26" fill="#3b2417"/><ellipse cx="13" cy="46" rx="13" ry="18" fill="#e8a94a"/><circle cx="13" cy="46" r="5" fill="#3b2417"/></svg>' },
+  teddy:    { label:'Teddy Bear', w:34, h:38, dx:30, dy:82, svg:'<svg viewBox="0 0 34 38" width="100%" height="100%"><circle cx="8" cy="6" r="6" fill="#c68642"/><circle cx="26" cy="6" r="6" fill="#c68642"/><circle cx="17" cy="16" r="14" fill="#deac6f"/><circle cx="12" cy="15" r="2" fill="#2d2d2d"/><circle cx="22" cy="15" r="2" fill="#2d2d2d"/><ellipse cx="17" cy="21" rx="4" ry="3" fill="#8a5a38"/></svg>' },
+  desk:     { label:'Desk', w:56, h:38, dx:70, dy:78, svg:'<svg viewBox="0 0 56 38" width="100%" height="100%"><rect x="0" y="14" width="56" height="7" fill="#a3714a"/><rect x="4" y="21" width="6" height="16" fill="#8a5a38"/><rect x="46" y="21" width="6" height="16" fill="#8a5a38"/><rect x="14" y="0" width="24" height="16" fill="#2d2d2d"/><rect x="16" y="2" width="20" height="12" fill="#5db3e0"/></svg>' }
+};
+
+var furniturePrices = {
+  bed:12, plant:5, painting:10, rug:8, lamp:6, table:7,
+  window:9, tv:15, bookshelf:11, mirror:8, clock:5,
+  couch:18, fireplace:14, aquarium:16, guitar:10, teddy:4, desk:9
+};
+
+var money = 20;
+var SAVE_KEY = 'runwayStarSave_v1';
+var storageAvailable = true;
+
+function saveGame(){
+  if(!storageAvailable) return;
+  try{
+    var data = {
+      money: money,
+      wall: h.wall,
+      floor: h.floor,
+      wallPattern: h.wallPattern,
+      furniture: h.furniture,
+      kidFollowing: kidFollowing,
+      houseTier: houseTier,
+      jobTier: jobTier,
+      timeOfDay: timeOfDay
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch(e){
+    storageAvailable = false;
+  }
+}
+
+function loadGame(){
+  try{
+    var raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return;
+    var data = JSON.parse(raw);
+    if(typeof data.money === 'number') money = data.money;
+    if(typeof data.wall === 'number') h.wall = data.wall;
+    if(typeof data.floor === 'number') h.floor = data.floor;
+    if(typeof data.wallPattern === 'number') h.wallPattern = data.wallPattern;
+    if(data.furniture){
+      Object.keys(data.furniture).forEach(function(key){
+        if(h.furniture[key]) h.furniture[key] = data.furniture[key];
+      });
+    }
+    if(typeof data.kidFollowing === 'boolean') kidFollowing = data.kidFollowing;
+    if(typeof data.houseTier === 'number') houseTier = Math.min(data.houseTier, houseTiers.length - 1);
+    if(typeof data.jobTier === 'number') jobTier = Math.min(data.jobTier, jobTiers.length - 1);
+    if(data.timeOfDay === 'day' || data.timeOfDay === 'night') timeOfDay = data.timeOfDay;
+  } catch(e){
+    storageAvailable = false;
+  }
+}
+
+function updateMoneyBadge(){
+  document.getElementById('moneyBadge').textContent = '💰 $' + money;
+}
+
+function earnMoney(amount){
+  money += amount;
+  updateMoneyBadge();
+  saveGame();
+}
+
+Object.keys(furnitureDefs).forEach(function(key, i){
+  var def = furnitureDefs[key];
+  h.furniture[key] = { on: i < 3, x: def.dx, y: def.dy };
+});
+
+function hairSvg(style, color){
+  if(style==='short') return '<path d="M45 70 Q45 20 90 20 Q135 20 135 70 Q135 45 90 45 Q45 45 45 70 Z" fill="'+color+'"/>';
+  if(style==='pony') return '<path d="M45 70 Q45 20 90 20 Q135 20 135 70 Q135 45 90 45 Q45 45 45 70 Z" fill="'+color+'"/><path d="M135 50 Q160 60 155 100 Q150 115 140 105 Z" fill="'+color+'"/>';
+  if(style==='bald') return '';
+  if(style==='spiky') return '<path d="M45 65 L52 25 L64 45 L72 15 L82 42 L90 12 L98 42 L108 15 L116 45 L128 25 L135 65 Q90 42 45 65 Z" fill="'+color+'"/>';
+  if(style==='curly') return '<g fill="'+color+'"><circle cx="58" cy="45" r="14"/><circle cx="75" cy="28" r="14"/><circle cx="90" cy="22" r="15"/><circle cx="105" cy="28" r="14"/><circle cx="122" cy="45" r="14"/><circle cx="90" cy="45" r="18"/></g>';
+  if(style==='buns') return '<path d="M45 70 Q45 20 90 20 Q135 20 135 70 Q135 45 90 45 Q45 45 45 70 Z" fill="'+color+'"/><circle cx="42" cy="32" r="12" fill="'+color+'"/><circle cx="138" cy="32" r="12" fill="'+color+'"/>';
+  return '';
+}
+
+function eyeSvg(style, cx, cy){
+  if(style==='round') return '<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="#2d2d2d"/>';
+  if(style==='happy') return '<path d="M'+(cx-6)+' '+cy+' Q'+cx+' '+(cy-8)+' '+(cx+6)+' '+cy+'" stroke="#2d2d2d" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  if(style==='wide') return '<circle cx="'+cx+'" cy="'+cy+'" r="6" fill="white" stroke="#2d2d2d" stroke-width="1.5"/><circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#2d2d2d"/>';
+  if(style==='wink') return cx < 90 ? '<circle cx="'+cx+'" cy="'+cy+'" r="5" fill="#2d2d2d"/>' : '<path d="M'+(cx-6)+' '+cy+' Q'+cx+' '+(cy+3)+' '+(cx+6)+' '+cy+'" stroke="#2d2d2d" stroke-width="3" fill="none" stroke-linecap="round"/>';
+  return '';
+}
+
+function patternSvg(pattern, clipId){
+  if(pattern==='plain') return '';
+  var g = '<g clip-path="url(#'+clipId+')">';
+  if(pattern==='stripes'){
+    for(var y=115; y<200; y+=14){
+      g += '<rect x="45" y="'+y+'" width="90" height="6" fill="rgba(255,255,255,0.55)"/>';
+    }
+  } else if(pattern==='dots'){
+    for(var y=125; y<195; y+=18){
+      for(var x=60; x<125; x+=18){
+        g += '<circle cx="'+x+'" cy="'+y+'" r="4" fill="rgba(255,255,255,0.6)"/>';
+      }
+    }
+  } else if(pattern==='stars'){
+    for(var y=125; y<195; y+=20){
+      for(var x=58; x<125; x+=22){
+        g += '<text x="'+x+'" y="'+y+'" font-size="10" fill="rgba(255,255,255,0.7)">&#9733;</text>';
+      }
+    }
+  }
+  g += '</g>';
+  return g;
+}
+
+function outfitSvg(style, color, pattern, clipId){
+  var shape = '';
+  if(style==='dress'){
+    shape = '<path id="'+clipId+'shape" d="M65 125 Q90 115 115 125 L128 195 Q90 210 52 195 Z" fill="'+color+'"/>';
+  } else if(style==='shirt'){
+    shape = '<path id="'+clipId+'shape" d="M62 125 Q90 116 118 125 L122 165 L58 165 Z" fill="'+color+'"/><rect x="60" y="163" width="60" height="34" fill="#555a6b"/>';
+  } else if(style==='jumpsuit'){
+    shape = '<path id="'+clipId+'shape" d="M60 125 Q90 116 120 125 L124 197 L98 197 L90 165 L82 197 L56 197 Z" fill="'+color+'"/>';
+  } else if(style==='gown'){
+    shape = '<path id="'+clipId+'shape" d="M68 125 Q90 116 112 125 L140 205 Q90 220 40 205 Z" fill="'+color+'"/>';
+  } else if(style==='skirt'){
+    shape = '<path id="'+clipId+'shape" d="M62 125 Q90 116 118 125 L120 158 L60 158 Z" fill="#f4c2c2"/><path d="M55 158 Q90 150 125 158 L135 197 Q90 208 45 197 Z" fill="'+color+'"/>';
+  }
+  var clip = '<clipPath id="'+clipId+'"><path d="M52 125 Q90 113 128 125 L140 210 Q90 222 40 210 Z"/></clipPath>';
+  return clip + shape + patternSvg(pattern, clipId);
+}
+
+function accessorySvg(style){
+  if(style==='none') return '';
+  if(style==='glasses') return '<g stroke="#333" stroke-width="2.5" fill="none"><circle cx="78" cy="85" r="10"/><circle cx="102" cy="85" r="10"/><line x1="88" y1="85" x2="92" y2="85"/></g>';
+  if(style==='bow') return '<g fill="#ff4d94"><path d="M90 20 L76 10 L76 30 Z"/><path d="M90 20 L104 10 L104 30 Z"/><circle cx="90" cy="20" r="4"/></g>';
+  if(style==='hat') return '<g fill="#4a2c8f"><ellipse cx="90" cy="35" rx="42" ry="7"/><path d="M68 35 Q68 0 90 0 Q112 0 112 35 Z"/><rect x="68" y="15" width="44" height="6" fill="#ff6b6b"/></g>';
+  if(style==='flower') return '<g fill="#ff6ec7"><circle cx="52" cy="42" r="5"/><circle cx="61" cy="37" r="5"/><circle cx="61" cy="47" r="5"/><circle cx="43" cy="37" r="5"/><circle cx="43" cy="47" r="5"/><circle cx="52" cy="42" r="3.5" fill="#ffd93d"/></g>';
+  return '';
+}
+
+function draw(targetId){
+  var skin = skins[s.skin];
+  var hColor = hairColors[s.hairColor];
+  var outfit = outfits[s.outfit];
+  var svg = document.getElementById(targetId);
+  var clipId = targetId + 'clip';
+  svg.innerHTML =
+    '<ellipse cx="90" cy="195" rx="40" ry="8" fill="rgba(0,0,0,0.08)"/>' +
+    outfitSvg(outfitStyles[s.outfitStyle], outfit, patterns[s.pattern], clipId) +
+    '<circle cx="90" cy="85" r="40" fill="'+skin+'"/>' +
+    eyeSvg(eyeStyles[s.eyes], 78, 82) +
+    eyeSvg(eyeStyles[s.eyes], 102, 82) +
+    '<path d="M80 100 Q90 108 100 100" stroke="#a13a3a" stroke-width="3" fill="none" stroke-linecap="round"/>' +
+    hairSvg(hairStyles[s.hair], hColor) +
+    accessorySvg(accessories[s.accessory]);
+}
+
+function houseDots(id, colors, key){
+  var el = document.getElementById(id);
+  el.innerHTML = '';
+  colors.forEach(function(c,i){
+    var d = document.createElement('div');
+    d.className = 'dot' + (h[key]===i ? ' sel' : '');
+    d.style.background = c;
+    d.onclick = function(){ h[key]=i; refreshHouse(); saveGame(); };
+    el.appendChild(d);
+  });
+}
+
+function buildFurnChips(){
+  var el = document.getElementById('furnTray');
+  el.innerHTML = '';
+  Object.keys(furnitureDefs).forEach(function(key){
+    var def = furnitureDefs[key];
+    var price = furniturePrices[key];
+    var owned = h.furniture[key].on;
+    var item = document.createElement('div');
+    item.className = 'trayItem' + (owned ? ' on' : '');
+    var priceTag = owned ? '' : '<div class="priceTag">$' + price + '</div>';
+    item.innerHTML = def.svg + '<span class="check">&#10003;</span>' + priceTag;
+    item.onclick = function(){
+      if(h.furniture[key].on){
+        h.furniture[key].on = false;
+        buildFurnChips();
+        drawRoom();
+        saveGame();
+        return;
+      }
+      if(money < price){
+        var msg = document.getElementById('shopMsg');
+        msg.textContent = "Not enough money for " + def.label + "! You need $" + price + ".";
+        msg.style.display = 'block';
+        setTimeout(function(){ msg.style.display = 'none'; }, 1800);
+        return;
+      }
+      money -= price;
+      updateMoneyBadge();
+      h.furniture[key].on = true;
+      buildFurnChips();
+      drawRoom();
+      saveGame();
+    };
+    el.appendChild(item);
+  });
+}
+
+var dragging = null;
+var pickedKey = null;
+var dragMoved = false;
+
+function startDrag(key, ev){
+  ev.stopPropagation();
+  dragging = key;
+  dragMoved = false;
+  var el = document.querySelector('.furn[data-key="'+key+'"]');
+  if(el) el.classList.add('dragging');
+}
+
+function dragMove(ev){
+  if(!dragging) return;
+  dragMoved = true;
+  var box = document.getElementById('houseBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
+  var clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  h.furniture[dragging].x = Math.max(4, Math.min(96, px));
+  h.furniture[dragging].y = Math.max(4, Math.min(96, py));
+  drawRoom();
+}
+
+function endDrag(ev){
+  if(dragging){
+    if(!dragMoved){
+      selectFurn(dragging);
+    } else {
+      saveGame();
+    }
+    dragging = null;
+    drawRoom();
+  }
+}
+
+function selectFurn(key){
+  if(key === 'bed'){
+    goToSleep();
+    return;
+  }
+  if(key === 'couch'){
+    watchTV();
+    return;
+  }
+  pickedKey = (pickedKey === key) ? null : key;
+  drawRoom();
+}
+
+var sleepBusy = false;
+
+function goToSleep(){
+  if(sleepBusy) return;
+  sleepBusy = true;
+  document.getElementById('sleepOverlay').style.display = 'flex';
+
+  setTimeout(function(){
+    document.getElementById('sleepOverlay').style.display = 'none';
+    timeOfDay = 'day';
+    updateTimeUI();
+    playWakeUpAnimation();
+    saveGame();
+  }, 2000);
+}
+
+function playWakeUpAnimation(){
+  var wake = document.getElementById('wakeOverlay');
+  var top = document.getElementById('lidTop');
+  var bottom = document.getElementById('lidBottom');
+  var text = document.getElementById('wakeText');
+  wake.style.display = 'block';
+  top.style.transition = 'none';
+  bottom.style.transition = 'none';
+  top.style.transform = 'scaleY(1)';
+  bottom.style.transform = 'scaleY(1)';
+  text.style.opacity = '0';
+  void wake.offsetWidth;
+  top.style.transition = 'transform 1s ease-in-out';
+  bottom.style.transition = 'transform 1s ease-in-out';
+
+  setTimeout(function(){
+    top.style.transform = 'scaleY(0)';
+    bottom.style.transform = 'scaleY(0)';
+    text.style.opacity = '1';
+  }, 80);
+
+  setTimeout(function(){
+    text.style.opacity = '0';
+  }, 1600);
+
+  setTimeout(function(){
+    wake.style.display = 'none';
+    sleepBusy = false;
+  }, 2100);
+}
+
+var tvColors = ['#5db3e0','#ff9f43','#4caf50','#e07a9e','#a78bfa'];
+var tvBusy = false;
+
+function watchTV(){
+  if(tvBusy) return;
+  tvBusy = true;
+  var overlay = document.getElementById('tvOverlay');
+  var screen = document.getElementById('tvScreenColor');
+  overlay.style.display = 'flex';
+  var flips = 0;
+  var flipInterval = setInterval(function(){
+    screen.style.background = tvColors[Math.floor(Math.random()*tvColors.length)];
+    flips++;
+    if(flips >= 6){
+      clearInterval(flipInterval);
+    }
+  }, 350);
+
+  setTimeout(function(){
+    overlay.style.display = 'none';
+    tvBusy = false;
+  }, 2400);
+}
+
+function removeFurn(key, ev){
+  ev.stopPropagation();
+  h.furniture[key].on = false;
+  pickedKey = null;
+  buildFurnChips();
+  drawRoom();
+  saveGame();
+}
+
+function drawRoom(){
+  var wall = document.getElementById('wall');
+  var floor = document.getElementById('floor');
+  var furnEl = document.getElementById('furniture');
+  var wp = '';
+  if(wallPatterns[h.wallPattern]==='stripes'){
+    for(var x=0; x<400; x+=30){ wp += '<rect x="'+x+'" y="0" width="14" height="200" fill="rgba(255,255,255,0.25)"/>'; }
+  } else if(wallPatterns[h.wallPattern]==='dots'){
+    for(var y=15; y<190; y+=35){ for(var x=15; x<390; x+=35){ wp += '<circle cx="'+x+'" cy="'+y+'" r="6" fill="rgba(255,255,255,0.3)"/>'; } }
+  }
+  wall.innerHTML = '<rect x="0" y="0" width="400" height="220" fill="'+getWallColors()[h.wall]+'"/>' + wp + '<rect x="0" y="200" width="400" height="20" fill="rgba(0,0,0,0.05)"/>';
+  floor.innerHTML = '<rect x="0" y="0" width="400" height="100" fill="'+getFloorColors()[h.floor]+'"/>';
+  var pieces = '';
+  Object.keys(furnitureDefs).forEach(function(key){
+    var f = h.furniture[key];
+    if(!f.on) return;
+    var def = furnitureDefs[key];
+    var pickedClass = (pickedKey === key) ? ' picked' : '';
+    var draggingClass = (dragging === key) ? ' dragging' : '';
+    pieces += '<div class="furn'+pickedClass+draggingClass+'" data-key="'+key+'" style="left:'+f.x+'%; top:'+f.y+'%; width:'+def.w+'px; height:'+def.h+'px; margin-left:-'+(def.w/2)+'px; margin-top:-'+(def.h/2)+'px;">'+def.svg+'<div class="removeBtn">&#10005;</div></div>';
+  });
+  furnEl.innerHTML = pieces;
+  Object.keys(furnitureDefs).forEach(function(key){
+    var f = h.furniture[key];
+    if(!f.on) return;
+    var el = furnEl.querySelector('[data-key="'+key+'"]');
+    if(el){
+      el.addEventListener('mousedown', function(ev){ startDrag(key, ev); });
+      el.addEventListener('touchstart', function(ev){ startDrag(key, ev); }, {passive:true});
+      el.addEventListener('click', function(ev){ ev.stopPropagation(); });
+      var rb = el.querySelector('.removeBtn');
+      if(rb){
+        rb.addEventListener('click', function(ev){ removeFurn(key, ev); });
+        rb.addEventListener('touchend', function(ev){ removeFurn(key, ev); });
+      }
+    }
+  });
+}
+
+function refreshHouse(){
+  houseDots('wallDots', getWallColors(), 'wall');
+  houseDots('floorDots', getFloorColors(), 'floor');
+  buildWallPatternChips();
+  buildFurnChips();
+  drawRoom();
+  applyHouseTierStyle();
+}
+
+function applyHouseTierStyle(){
+  var box = document.getElementById('houseBox');
+  if(box) box.style.boxShadow = houseTiers[houseTier].glow;
+}
+
+function buildWallPatternChips(){
+  var el = document.getElementById('wallPatternChips');
+  el.innerHTML = '';
+  wallPatterns.forEach(function(p, i){
+    var c = document.createElement('div');
+    c.className = 'chip' + (h.wallPattern===i ? ' on' : '');
+    c.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+    c.onclick = function(){ h.wallPattern = i; buildWallPatternChips(); drawRoom(); saveGame(); };
+    el.appendChild(c);
+  });
+}
+
+function kidSvg(){
+  return '<ellipse cx="30" cy="66" rx="16" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M14 44 Q30 36 46 44 L50 66 Q30 74 10 66 Z" fill="#ffb84d"/>' +
+    '<circle cx="30" cy="24" r="18" fill="#ffe0bd"/>' +
+    '<path d="M12 24 Q12 6 30 6 Q48 6 48 24 Q48 15 30 15 Q12 15 12 24 Z" fill="#7a4a2b"/>' +
+    '<circle cx="23" cy="26" r="2.4" fill="#2d2d2d"/>' +
+    '<circle cx="37" cy="26" r="2.4" fill="#2d2d2d"/>' +
+    '<path d="M24 33 Q30 38 36 33" stroke="#a13a3a" stroke-width="2" fill="none" stroke-linecap="round"/>';
+}
+
+var kidFollowing = true;
+
+var timeOfDay = 'day';
+
+function toggleTimeOfDay(){
+  timeOfDay = (timeOfDay === 'day') ? 'night' : 'day';
+  updateTimeUI();
+  saveGame();
+}
+
+function updateTimeUI(){
+  var btn = document.getElementById('timeToggle');
+  btn.textContent = (timeOfDay === 'day') ? '☀️ Day' : '🌙 Night';
+  var overlay = document.getElementById('nightOverlay');
+  if(overlay) overlay.style.display = (timeOfDay === 'night') ? 'block' : 'none';
+}
+
+function positionKid(kidId, mainX, mainY, facing){
+  var el = document.getElementById(kidId);
+  if(!el) return;
+  if(!kidFollowing){
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = '';
+  if(!el.innerHTML) el.innerHTML = kidSvg();
+  var kx = Math.max(6, Math.min(94, mainX - facing*11));
+  var ky = Math.min(94, mainY + 6);
+  el.style.left = kx + '%';
+  el.style.top = ky + '%';
+}
+
+function toggleKidFollow(){
+  kidFollowing = !kidFollowing;
+  var btn = document.getElementById('kidToggle');
+  btn.textContent = kidFollowing ? '🧒 Kid: On' : '🧒 Kid: Off';
+  btn.classList.toggle('active', kidFollowing);
+
+  if(!kidFollowing){
+    ['kidHouse','kidFriend','kidWork','kidSchool'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.style.display = 'none';
+    });
+  } else {
+    if(document.getElementById('houseScreen').style.display !== 'none') positionChar();
+    else if(document.getElementById('friendHouseScreen').style.display !== 'none') positionFriendChar();
+    else if(document.getElementById('workScreen').style.display !== 'none') positionWorkChar();
+    else if(document.getElementById('schoolScreen').style.display !== 'none') positionSchoolChar();
+  }
+  saveGame();
+}
+
+function positionChar(){
+  var el = document.getElementById('houseChar');
+  el.style.left = h.charX + '%';
+  el.style.top = h.charY + '%';
+  el.style.transform = h.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+  positionKid('kidHouse', h.charX, h.charY, h.facing);
+}
+
+function moveChar(dx, dy){
+  h.charX = Math.max(8, Math.min(92, h.charX + dx*8));
+  h.charY = Math.max(38, Math.min(88, h.charY + dy*8));
+  if(dx !== 0) h.facing = dx;
+  positionChar();
+}
+
+function roomTap(e){
+  var box = document.getElementById('houseBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < h.charX) h.facing = -1;
+  else if(px > h.charX) h.facing = 1;
+  h.charX = Math.max(8, Math.min(92, px));
+  h.charY = Math.max(38, Math.min(88, py));
+  positionChar();
+}
+
+/* ---- Neighborhood driving ---- */
+var friendHouses = {
+  home: { x:50, y:78, label:'My House' },
+  mia:  { x:18, y:40, label:"Mia's",
+    wall:'#ffd6e8', floor:'#e8c39e', wallPattern:'dots',
+    furniture: [
+      {key:'couch', x:30, y:70}, {key:'plant', x:85, y:65},
+      {key:'painting', x:50, y:20}, {key:'rug', x:50, y:88},
+      {key:'teddy', x:70, y:75}
+    ]
+  },
+  sam:  { x:80, y:28, label:"Sam's",
+    wall:'#c9f0ff', floor:'#b0b0b0', wallPattern:'stripes',
+    furniture: [
+      {key:'tv', x:20, y:24}, {key:'couch', x:35, y:70},
+      {key:'bookshelf', x:6, y:35}, {key:'guitar', x:90, y:55},
+      {key:'lamp', x:92, y:35}
+    ]
+  }
+};
+
+var car = { x:50, y:60, facing:1 };
+
+function carSvg(){
+  return '<g><rect x="4" y="14" width="56" height="18" rx="6" fill="#ff6b6b"/><path d="M14 14 L20 2 L44 2 L50 14 Z" fill="#ff8fa2"/><rect x="21" y="4" width="9" height="9" fill="#bfe3f2"/><rect x="33" y="4" width="9" height="9" fill="#bfe3f2"/><circle cx="16" cy="32" r="7" fill="#2d2d2d"/><circle cx="48" cy="32" r="7" fill="#2d2d2d"/><circle cx="16" cy="32" r="3" fill="#888"/><circle cx="48" cy="32" r="3" fill="#888"/></g>';
+}
+
+function drawRoad(){
+  var road = document.getElementById('roadPath');
+  road.innerHTML = '<path d="M 200 300 Q 60 220 72 140 Q 320 90 320 30" stroke="#d8d0c0" stroke-width="46" fill="none" stroke-linecap="round"/><path d="M 200 300 Q 60 220 72 140 Q 320 90 320 30" stroke="#fff" stroke-width="3" stroke-dasharray="14 14" fill="none" opacity="0.7"/>';
+  var carEl = document.getElementById('car');
+  carEl.innerHTML = carSvg();
+  carEl.style.left = car.x + '%';
+  carEl.style.top = car.y + '%';
+  carEl.style.transform = car.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+}
+
+function moveCar(dx, dy){
+  car.x = Math.max(6, Math.min(94, car.x + dx*7));
+  car.y = Math.max(8, Math.min(92, car.y + dy*7));
+  if(dx !== 0) car.facing = dx;
+  drawRoad();
+  checkArrival();
+}
+
+function roadTap(e){
+  var box = document.getElementById('roadBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < car.x) car.facing = -1;
+  else if(px > car.x) car.facing = 1;
+  car.x = Math.max(6, Math.min(94, px));
+  car.y = Math.max(8, Math.min(92, py));
+  drawRoad();
+  checkArrival();
+}
+
+function checkArrival(){
+  var msg = document.getElementById('arriveMsg');
+  var closeKey = null;
+  Object.keys(friendHouses).forEach(function(key){
+    var f = friendHouses[key];
+    var dist = Math.hypot(car.x - f.x, car.y - f.y);
+    if(dist < 10) closeKey = key;
+  });
+  if(closeKey){
+    msg.textContent = "You're at " + friendHouses[closeKey].label + "! Tap the house to go in.";
+  } else {
+    msg.innerHTML = '&nbsp;';
+  }
+}
+
+function enterHouse(key){
+  if(key === 'home'){
+    document.getElementById('neighborhoodScreen').style.display = 'none';
+    document.getElementById('houseScreen').style.display = 'flex';
+    return;
+  }
+  var f = friendHouses[key];
+  document.getElementById('neighborhoodScreen').style.display = 'none';
+  document.getElementById('friendHouseScreen').style.display = 'flex';
+  document.getElementById('friendName').textContent = "Welcome to " + f.label + " house!";
+  var wall = document.getElementById('wallFriend');
+  var floor = document.getElementById('floorFriend');
+  var furnEl = document.getElementById('furnitureFriend');
+  var wp = '';
+  if(f.wallPattern==='stripes'){
+    for(var x=0; x<400; x+=30){ wp += '<rect x="'+x+'" y="0" width="14" height="200" fill="rgba(255,255,255,0.25)"/>'; }
+  } else if(f.wallPattern==='dots'){
+    for(var y2=15; y2<190; y2+=35){ for(var x2=15; x2<390; x2+=35){ wp += '<circle cx="'+x2+'" cy="'+y2+'" r="6" fill="rgba(255,255,255,0.3)"/>'; } }
+  }
+  wall.innerHTML = '<rect x="0" y="0" width="400" height="220" fill="'+f.wall+'"/>' + wp;
+  floor.innerHTML = '<rect x="0" y="0" width="400" height="100" fill="'+f.floor+'"/>';
+  var pieces = '';
+  f.furniture.forEach(function(item){
+    var def = furnitureDefs[item.key];
+    pieces += '<div style="position:absolute; left:'+item.x+'%; top:'+item.y+'%; width:'+def.w+'px; height:'+def.h+'px; margin-left:-'+(def.w/2)+'px; margin-top:-'+(def.h/2)+'px; z-index:3;">'+def.svg+'</div>';
+  });
+  furnEl.innerHTML = pieces;
+  draw('charFriend');
+  friendCharPos.x = 50; friendCharPos.y = 65; friendCharPos.facing = 1;
+  positionFriendChar();
+  document.getElementById('houseBoxFriend').onclick = friendRoomTap;
+}
+
+function leaveFriendHouse(){
+  document.getElementById('friendHouseScreen').style.display = 'none';
+  document.getElementById('neighborhoodScreen').style.display = 'flex';
+}
+
+var workTasks = [
+  "You helped a customer find the perfect outfit!",
+  "You organized the whole stock room!",
+  "You closed a big sale — great job!",
+  "You trained a new coworker today!",
+  "You got a shout-out from your boss!"
+];
+
+var customerOutfits = ['#ff6b6b','#4ecdc4','#a78bfa','#ffe66d','#ff9f43','#54a0ff','#e07a9e'];
+var customerSkins = ['#ffe0bd','#e0ac69','#8d5524','#f1c27d','#c68642'];
+
+function customerSvg(){
+  var outfit = customerOutfits[Math.floor(Math.random()*customerOutfits.length)];
+  var skin = customerSkins[Math.floor(Math.random()*customerSkins.length)];
+  return '<ellipse cx="30" cy="76" rx="18" ry="4" fill="rgba(0,0,0,0.1)"/>' +
+    '<path d="M14 48 Q30 40 46 48 L50 74 Q30 82 10 74 Z" fill="'+outfit+'"/>' +
+    '<circle cx="30" cy="26" r="19" fill="'+skin+'"/>' +
+    '<path d="M11 26 Q11 6 30 6 Q49 6 49 26 Q49 16 30 16 Q11 16 11 26 Z" fill="#5a3d1f"/>' +
+    '<circle cx="23" cy="27" r="2.3" fill="#2d2d2d"/>' +
+    '<circle cx="37" cy="27" r="2.3" fill="#2d2d2d"/>' +
+    '<path d="M23 34 Q30 39 37 34" stroke="#a13a3a" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<rect x="4" y="52" width="12" height="14" rx="2" fill="#8a5a38"/>';
+}
+
+function angryCustomerSvg(){
+  var outfit = customerOutfits[Math.floor(Math.random()*customerOutfits.length)];
+  var skin = customerSkins[Math.floor(Math.random()*customerSkins.length)];
+  return '<ellipse cx="30" cy="76" rx="18" ry="4" fill="rgba(0,0,0,0.1)"/>' +
+    '<path d="M14 48 Q30 40 46 48 L50 74 Q30 82 10 74 Z" fill="'+outfit+'"/>' +
+    '<circle cx="30" cy="26" r="19" fill="'+skin+'"/>' +
+    '<ellipse cx="20" cy="30" rx="6" ry="4" fill="#ff8a80" opacity="0.6"/>' +
+    '<ellipse cx="40" cy="30" rx="6" ry="4" fill="#ff8a80" opacity="0.6"/>' +
+    '<path d="M11 26 Q11 6 30 6 Q49 6 49 26 Q49 16 30 16 Q11 16 11 26 Z" fill="#5a3d1f"/>' +
+    '<path d="M18 21 L27 24" stroke="#2d2d2d" stroke-width="2.4" stroke-linecap="round"/>' +
+    '<path d="M42 21 L33 24" stroke="#2d2d2d" stroke-width="2.4" stroke-linecap="round"/>' +
+    '<circle cx="23" cy="28" r="2.3" fill="#2d2d2d"/>' +
+    '<circle cx="37" cy="28" r="2.3" fill="#2d2d2d"/>' +
+    '<path d="M22 38 Q30 32 38 38" stroke="#a13a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+    '<rect x="4" y="52" width="12" height="14" rx="2" fill="#8a5a38"/>';
+}
+
+function cashierSvg(){
+  return '<ellipse cx="28" cy="76" rx="16" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M14 46 Q28 39 42 46 L45 72 Q28 80 11 72 Z" fill="#4a90d9"/>' +
+    '<rect x="10" y="50" width="36" height="8" fill="#f5eedc"/>' +
+    '<circle cx="28" cy="24" r="17" fill="#e0ac69"/>' +
+    '<path d="M12 24 Q12 6 28 6 Q44 6 44 24 Q44 15 28 15 Q12 15 12 24 Z" fill="#2d2016"/>' +
+    '<circle cx="22" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<circle cx="34" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<path d="M21 32 Q28 37 35 32" stroke="#a13a3a" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<rect x="18" y="55" width="20" height="6" rx="1" fill="#ffd93d"/>';
+}
+
+var cashierLines = [
+  "Business has been steady today, boss!",
+  "That last customer seemed a lot happier after you helped them!",
+  "Thanks for handling that complaint — I really appreciate it!",
+  "I've been keeping the shelves nice and stocked!",
+  "Let me know if you ever need me to do anything!",
+  "Working here has been great, thanks for being a good manager!"
+];
+var lastCashierLine = -1;
+
+function pickCashierLine(){
+  if(cashierLines.length <= 1) return 0;
+  var idx;
+  do {
+    idx = Math.floor(Math.random()*cashierLines.length);
+  } while(idx === lastCashierLine);
+  lastCashierLine = idx;
+  return idx;
+}
+
+function cashierSadSvg(){
+  return '<ellipse cx="28" cy="76" rx="16" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M14 46 Q28 39 42 46 L45 72 Q28 80 11 72 Z" fill="#4a90d9"/>' +
+    '<rect x="10" y="50" width="36" height="8" fill="#f5eedc"/>' +
+    '<circle cx="28" cy="24" r="17" fill="#e0ac69"/>' +
+    '<path d="M12 24 Q12 6 28 6 Q44 6 44 24 Q44 15 28 15 Q12 15 12 24 Z" fill="#2d2016"/>' +
+    '<path d="M17 20 L26 24" stroke="#2d2d2d" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<path d="M39 20 L30 24" stroke="#2d2d2d" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<circle cx="22" cy="28" r="2.1" fill="#2d2d2d"/>' +
+    '<circle cx="34" cy="28" r="2.1" fill="#2d2d2d"/>' +
+    '<path d="M25 32 Q24 37 22 39" stroke="#5db3e0" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<ellipse cx="21.5" cy="40" rx="2" ry="2.6" fill="#5db3e0"/>' +
+    '<path d="M20 39 Q28 31 36 39" stroke="#a13a3a" stroke-width="2.4" fill="none" stroke-linecap="round"/>' +
+    '<rect x="18" y="55" width="20" height="6" rx="1" fill="#ffd93d"/>';
+}
+
+function cashierHappySvg(){
+  return '<ellipse cx="28" cy="76" rx="16" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M14 46 Q28 39 42 46 L45 72 Q28 80 11 72 Z" fill="#4a90d9"/>' +
+    '<rect x="10" y="50" width="36" height="8" fill="#f5eedc"/>' +
+    '<circle cx="28" cy="24" r="17" fill="#e0ac69"/>' +
+    '<path d="M12 24 Q12 6 28 6 Q44 6 44 24 Q44 15 28 15 Q12 15 12 24 Z" fill="#2d2016"/>' +
+    '<circle cx="22" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<circle cx="34" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<path d="M20 31 Q28 40 36 31" stroke="#a13a3a" stroke-width="2.2" fill="none" stroke-linecap="round"/>' +
+    '<rect x="18" y="55" width="20" height="6" rx="1" fill="#ffd93d"/>';
+}
+
+function cashierOkaySvg(){
+  return '<ellipse cx="28" cy="76" rx="16" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M14 46 Q28 39 42 46 L45 72 Q28 80 11 72 Z" fill="#4a90d9"/>' +
+    '<rect x="10" y="50" width="36" height="8" fill="#f5eedc"/>' +
+    '<circle cx="28" cy="24" r="17" fill="#e0ac69"/>' +
+    '<path d="M12 24 Q12 6 28 6 Q44 6 44 24 Q44 15 28 15 Q12 15 12 24 Z" fill="#2d2016"/>' +
+    '<circle cx="22" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<circle cx="34" cy="25" r="2.1" fill="#2d2d2d"/>' +
+    '<path d="M22 33 Q28 36 34 33" stroke="#a13a3a" stroke-width="2.2" fill="none" stroke-linecap="round"/>' +
+    '<rect x="18" y="55" width="20" height="6" rx="1" fill="#ffd93d"/>';
+}
+
+var feedbackChoices = [
+  { label: "You need to be nicer to customers!", reply: "\"I'm sorry, I'll do better.\"", mood: 'sad' },
+  { label: "Let's work on being a bit kinder, okay?", reply: "\"Thanks for being so understanding!\"", mood: 'okay' },
+  { label: "Please make sure to help everyone!", reply: "\"You're right, I'll pay more attention.\"", mood: 'okay' },
+  { label: "I've heard complaints about slow service.", reply: "\"I'll try to work faster, I promise.\"", mood: 'sad' },
+  { label: "You're doing great, just smile a bit more!", reply: "\"I really appreciate you saying that!\"", mood: 'okay' },
+  { label: "Great job today, keep it up!", reply: "\"Thank you, that means a lot!\"", mood: 'happy' }
+];
+
+var feedbackBusy = false;
+
+function giveCashierFeedback(){
+  if(feedbackBusy) return;
+  feedbackBusy = true;
+  document.getElementById('workCaption').textContent = 'What do you want to tell them?';
+  var opts = document.getElementById('feedbackOptions');
+  opts.innerHTML = '';
+  feedbackChoices.forEach(function(opt, i){
+    var btn = document.createElement('button');
+    btn.className = 'optionBtn';
+    btn.textContent = opt.label;
+    btn.onclick = function(){ respondFeedback(i); };
+    opts.appendChild(btn);
+  });
+  document.getElementById('feedbackOptionsWrap').style.display = 'block';
+  setTimeout(function(){
+    document.getElementById('feedbackOptionsWrap').scrollIntoView({behavior:'smooth', block:'center'});
+  }, 100);
+}
+
+function respondFeedback(i){
+  var opt = feedbackChoices[i];
+  var bubble = document.getElementById('speechBubble');
+  bubble.textContent = opt.reply;
+  bubble.style.display = 'block';
+  document.getElementById('feedbackOptionsWrap').style.display = 'none';
+  var face = cashierSadSvg();
+  if(opt.mood === 'happy') face = cashierHappySvg();
+  else if(opt.mood === 'okay') face = cashierOkaySvg();
+  document.getElementById('cashierAtRegister').innerHTML = face;
+  document.getElementById('workCaption').textContent = 'Your cashier heard you loud and clear.';
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    feedbackBusy = false;
+    document.getElementById('cashierAtRegister').innerHTML = cashierSvg();
+    document.getElementById('workCaption').textContent = "You can head back to the office whenever you're ready.";
+  }, 1800);
+}
+
+function goToStoreAsManager(){
+  playDoorChime();
+  openDoor('doorPanelOffice');
+  setTimeout(function(){
+    closeDoor('doorPanelOffice');
+    hideAllScreens();
+    document.getElementById('workScreen').style.display = 'flex';
+    storeVisitMode = true;
+    draw('charWork');
+    workCharPos.x = 8; workCharPos.y = 70; workCharPos.facing = 1;
+    positionWorkChar();
+    document.getElementById('cashierAtRegister').style.display = 'block';
+    document.getElementById('cashierAtRegister').innerHTML = cashierSvg();
+    document.getElementById('ringBtn').style.display = 'none';
+    document.getElementById('conveyorBelt').style.display = 'none';
+    document.getElementById('beltItems').style.display = 'none';
+    document.getElementById('answerOptionsWrap').style.display = 'none';
+    document.getElementById('feedbackOptionsWrap').style.display = 'none';
+    document.getElementById('speechBubble').style.display = 'none';
+    feedbackBusy = false;
+    var jt = jobTiers[jobTier];
+    document.getElementById('jobTitleBadge').textContent = '👔 ' + jt.title + ' — visiting the store';
+    document.getElementById('workCaption').textContent = 'You walk in and see your cashier working the register.';
+    document.getElementById('workBox').onclick = workRoomTap;
+    document.getElementById('registerSpot').onclick = function(ev){ ev.stopPropagation(); giveCashierFeedback(); };
+    var backBtn = document.getElementById('workBackBtn');
+    backBtn.textContent = 'Back to Office';
+    backBtn.onclick = function(){ goToOffice(); };
+    openDoor();
+    setTimeout(function(){ closeDoor(); }, 700);
+  }, 500);
+}
+
+var conversationTemplates = [
+  {
+    q: function(name){ return "Is this " + name + " good?"; },
+    options: [
+      { label: "It's one of our best!", reply: "\"That settles it!\"" },
+      { label: "Everyone loves it!", reply: "\"Great, sign me up!\"" },
+      { label: "Yes, comes with a guarantee!", reply: "\"Even better, I'm sold!\"" }
+    ]
+  },
+  {
+    q: function(name){ return "Do you have more of this " + name + " in stock?"; },
+    options: [
+      { label: "Yes, plenty more!", reply: "\"Perfect, good to know!\"" },
+      { label: "This is the last one!", reply: "\"Lucky me then!\"" },
+      { label: "We can restock soon!", reply: "\"I'll come back for more!\"" }
+    ]
+  },
+  {
+    q: function(name){ return "Great, I'll take the " + name + "! Anything else I should know?"; },
+    options: [
+      { label: "Enjoy, come back soon!", reply: "\"I definitely will, thanks!\"" },
+      { label: "There's a sale coming up!", reply: "\"Ooh, good to know!\"" },
+      { label: "Members get a discount!", reply: "\"I'll sign up then!\"" }
+    ]
+  }
+];
+
+function buildConversationForItems(items){
+  var steps = [];
+  conversationTemplates.forEach(function(t, i){
+    var itemName = items[i % items.length].name.toLowerCase();
+    steps.push({ question: t.q(itemName), options: t.options });
+  });
+  return steps;
+}
+
+var registerBusy = false;
+var storeVisitMode = false;
+
+var shopItems = [
+  { name:'Shirt', price:5, svg:'<rect x="4" y="10" width="32" height="26" rx="3" fill="#ff6b6b"/><path d="M4 10 L14 4 L20 10 L26 4 L36 10 L32 18 L26 14 L26 36 L14 36 L14 14 L8 18 Z" fill="#ff6b6b"/>' },
+  { name:'Toy Bear', price:4, svg:'<circle cx="12" cy="8" r="5" fill="#c68642"/><circle cx="28" cy="8" r="5" fill="#c68642"/><circle cx="20" cy="20" r="16" fill="#deac6f"/><circle cx="15" cy="18" r="2" fill="#2d2d2d"/><circle cx="25" cy="18" r="2" fill="#2d2d2d"/><ellipse cx="20" cy="26" rx="4" ry="3" fill="#8a5a38"/>' },
+  { name:'Book', price:6, svg:'<rect x="6" y="4" width="28" height="34" rx="2" fill="#54a0ff"/><rect x="10" y="4" width="4" height="34" fill="#3d7fd1"/><rect x="18" y="12" width="12" height="2" fill="#fff"/><rect x="18" y="18" width="12" height="2" fill="#fff"/>' },
+  { name:'Hat', price:5, svg:'<ellipse cx="20" cy="30" rx="18" ry="6" fill="#4a2c8f"/><path d="M8 30 Q8 6 20 6 Q32 6 32 30 Z" fill="#6a3cb5"/><rect x="8" y="18" width="24" height="5" fill="#ff6b6b"/>' },
+  { name:'Shoes', price:7, svg:'<path d="M2 30 Q2 20 14 20 L30 20 Q38 20 38 30 L38 34 L2 34 Z" fill="#ff9f43"/><rect x="8" y="22" width="20" height="4" fill="#fff"/>' },
+  { name:'Plant', price:3, svg:'<path d="M20 24 Q4 16 10 2 Q20 8 20 24 Q20 8 30 2 Q36 16 20 24" fill="#4caf50"/><path d="M14 24 L26 24 L23 38 L17 38 Z" fill="#a05a2c"/>' },
+  { name:'Bread', price:3, svg:'<path d="M4 22 Q4 8 20 8 Q36 8 36 22 L36 30 Q20 34 4 30 Z" fill="#d9a15b"/><path d="M4 22 Q4 8 20 8 Q36 8 36 22" fill="none" stroke="#b97f3a" stroke-width="2"/><path d="M12 16 Q13 20 12 24" stroke="#b97f3a" stroke-width="1.5" fill="none"/><path d="M20 14 Q21 20 20 26" stroke="#b97f3a" stroke-width="1.5" fill="none"/><path d="M28 16 Q29 20 28 24" stroke="#b97f3a" stroke-width="1.5" fill="none"/>' }
+];
+
+function setWorkButtons(mode){
+  document.getElementById('ringBtn').style.display = (mode === 'ring') ? 'block' : 'none';
+  var wrap = document.getElementById('answerOptionsWrap');
+  wrap.style.display = (mode === 'answer') ? 'block' : 'none';
+  if(mode === 'answer'){
+    setTimeout(function(){
+      wrap.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 100);
+  }
+}
+
+var beltQueue = [];
+var scanTotal = 0;
+var purchasedItems = [];
+
+function spawnBeltItems(){
+  var count = 2 + Math.floor(Math.random()*2);
+  beltQueue = [];
+  purchasedItems = [];
+  for(var i=0; i<count; i++){
+    beltQueue.push(shopItems[Math.floor(Math.random()*shopItems.length)]);
+  }
+  scanTotal = 0;
+  renderBeltItems();
+  document.getElementById('conveyorBelt').style.display = 'block';
+  document.getElementById('beltItems').style.display = 'block';
+}
+
+function renderBeltItems(){
+  var el = document.getElementById('beltItems');
+  el.innerHTML = '';
+  var spacing = 150 / (beltQueue.length + 1);
+  beltQueue.forEach(function(item, i){
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:absolute; top:0; width:36px; height:36px; left:' + (spacing*(i+1)-18) + 'px; cursor:pointer;';
+    wrap.innerHTML = '<svg viewBox="0 0 40 40" width="100%" height="100%">' + item.svg + '</svg>';
+    wrap.onclick = function(ev){ ev.stopPropagation(); scanItem(i); };
+    el.appendChild(wrap);
+  });
+}
+
+function scanItem(index){
+  var item = beltQueue[index];
+  if(!item) return;
+  var flash = document.getElementById('scanFlash');
+  flash.style.display = 'block';
+  setTimeout(function(){ flash.style.display = 'none'; }, 250);
+
+  scanTotal += item.price;
+  purchasedItems.push(item);
+  beltQueue.splice(index, 1);
+  renderBeltItems();
+  document.getElementById('workCaption').textContent = 'Scanned ' + item.name + '! ($' + item.price + ') Subtotal: $' + scanTotal;
+
+  if(beltQueue.length === 0){
+    document.getElementById('conveyorBelt').style.display = 'none';
+    document.getElementById('beltItems').style.display = 'none';
+    setTimeout(function(){
+      askCustomerQuestion();
+    }, 700);
+  }
+}
+
+function playDoorChime(){
+  try{
+    var AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if(!AudioCtx) return;
+    var ctx = new AudioCtx();
+    function tone(freq, startTime, duration){
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(startTime);
+      osc.stop(startTime + duration + 0.05);
+    }
+    var now = ctx.currentTime;
+    tone(1046.5, now, 0.35);
+    tone(783.99, now + 0.28, 0.45);
+  } catch(e){}
+}
+
+function openDoor(panelId){
+  document.getElementById(panelId || 'doorPanel').style.transform = 'rotateY(-115deg)';
+}
+
+function closeDoor(panelId){
+  document.getElementById(panelId || 'doorPanel').style.transform = 'rotateY(0deg)';
+}
+
+function ringRegister(){
+  if(registerBusy) return;
+  registerBusy = true;
+  setWorkButtons('none');
+  draw('charWork');
+  var cust = document.getElementById('customerWork');
+  cust.innerHTML = customerSvg();
+  cust.style.left = '-20%';
+  cust.style.top = '32%';
+  cust.style.opacity = '0';
+  document.getElementById('workCaption').textContent = 'The door opens...';
+  playDoorChime();
+  openDoor();
+
+  setTimeout(function(){
+    cust.style.opacity = '1';
+    cust.style.left = '18%';
+    document.getElementById('workCaption').textContent = 'A customer walks in!';
+  }, 60);
+
+  setTimeout(function(){
+    closeDoor();
+  }, 700);
+
+  setTimeout(function(){
+    cust.style.left = '80%';
+    document.getElementById('workCaption').textContent = 'They found some things they like!';
+  }, 1300);
+
+  setTimeout(function(){
+    cust.style.top = '58%';
+    cust.style.left = '30%';
+    document.getElementById('workCaption').textContent = 'They\'re heading to the register...';
+  }, 2500);
+
+  setTimeout(function(){
+    document.getElementById('workCaption').textContent = 'They put their items on the belt! Tap each one to scan it.';
+    spawnBeltItems();
+  }, 3600);
+}
+
+var pendingConvo = null;
+var pendingStep = 0;
+
+function askCustomerQuestion(){
+  pendingConvo = buildConversationForItems(purchasedItems.length ? purchasedItems : [{name:'thing'}]);
+  pendingStep = 0;
+  showConversationStep();
+}
+
+function showConversationStep(){
+  var step = pendingConvo[pendingStep];
+  var bubble = document.getElementById('speechBubble');
+  bubble.textContent = step.question;
+  bubble.style.display = 'block';
+  var stepLabel = (pendingStep === 0) ? 'A customer has a question!' : 'They have another question!';
+  document.getElementById('workCaption').textContent = stepLabel + ' What do you say?';
+  buildAnswerOptions(step);
+  setWorkButtons('answer');
+}
+
+function buildAnswerOptions(step){
+  var opts = document.getElementById('answerOptions');
+  opts.innerHTML = '';
+  step.options.forEach(function(opt, i){
+    var btn = document.createElement('button');
+    btn.className = 'optionBtn';
+    btn.textContent = opt.label;
+    btn.onclick = function(){ answerCustomer(i); };
+    opts.appendChild(btn);
+  });
+}
+
+function answerCustomer(optIndex){
+  if(pendingConvo === null) return;
+  var step = pendingConvo[pendingStep];
+  var bubble = document.getElementById('speechBubble');
+  bubble.textContent = step.options[optIndex].reply;
+  setWorkButtons('none');
+
+  var isLastStep = (pendingStep === pendingConvo.length - 1);
+
+  if(!isLastStep){
+    document.getElementById('workCaption').textContent = 'Chatting with your customer...';
+    setTimeout(function(){
+      pendingStep++;
+      showConversationStep();
+    }, 1300);
+    return;
+  }
+
+  document.getElementById('workCaption').textContent = 'You rang up all their items!';
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    pendingConvo = null;
+    pendingStep = 0;
+    var payout = Math.round(scanTotal * jobTiers[jobTier].multiplier);
+    earnMoney(payout);
+    var bonusNote = jobTiers[jobTier].multiplier > 1 ? ' (' + jobTiers[jobTier].title + ' bonus applied!)' : '';
+    document.getElementById('workCaption').textContent = 'Sale complete! You earned $' + payout + '!' + bonusNote;
+    var cust = document.getElementById('customerWork');
+    cust.style.left = '120%';
+    setTimeout(function(){
+      cust.style.opacity = '0';
+      registerBusy = false;
+      setWorkButtons('ring');
+    }, 1100);
+  }, 1300);
+}
+
+function goToWork(){
+  if(jobTier >= 1){
+    goToOffice();
+  } else {
+    goToRegister();
+  }
+}
+
+function goToRegister(){
+  hideAllScreens();
+  document.getElementById('workScreen').style.display = 'flex';
+  draw('charWork');
+  var cust = document.getElementById('customerWork');
+  cust.style.left = '-20%';
+  cust.style.top = '32%';
+  cust.style.opacity = '0';
+  cust.innerHTML = '';
+  closeDoor();
+  storeVisitMode = false;
+  feedbackBusy = false;
+  document.getElementById('cashierAtRegister').style.display = 'none';
+  document.getElementById('feedbackOptionsWrap').style.display = 'none';
+  document.getElementById('speechBubble').style.display = 'none';
+  document.getElementById('answerOptions').innerHTML = '';
+  document.getElementById('conveyorBelt').style.display = 'none';
+  document.getElementById('beltItems').style.display = 'none';
+  document.getElementById('beltItems').innerHTML = '';
+  beltQueue = [];
+  scanTotal = 0;
+  purchasedItems = [];
+  pendingConvo = null;
+  pendingStep = 0;
+  registerBusy = false;
+  setWorkButtons('ring');
+  var jt = jobTiers[jobTier];
+  document.getElementById('jobTitleBadge').textContent = '👔 ' + jt.title + (jt.multiplier > 1 ? ' (' + jt.multiplier + 'x pay)' : '');
+  document.getElementById('workCaption').textContent = "Tap the register to open the store!";
+  workCharPos.x = 50; workCharPos.y = 68; workCharPos.facing = 1;
+  positionWorkChar();
+  document.getElementById('workBox').onclick = workRoomTap;
+  document.getElementById('registerSpot').onclick = function(ev){ ev.stopPropagation(); ringRegister(); };
+  var backBtn = document.getElementById('workBackBtn');
+  backBtn.textContent = 'Back to the Car';
+  backBtn.onclick = function(){ navDrive(); };
+}
+
+/* ---- Manager's office: complaints ---- */
+var complaintTemplates = [
+  {
+    q: "The cashier was really slow with my order!",
+    options: [
+      { label: "I'm so sorry, let me speak with them.", reply: "\"Thank you, I appreciate it.\"" },
+      { label: "Here's a coupon for the wait.", reply: "\"Oh, that's very kind, thank you!\"" },
+      { label: "We'll work on being faster.", reply: "\"I hope so, but thanks for listening.\"" }
+    ]
+  },
+  {
+    q: "My item was damaged when I got home!",
+    options: [
+      { label: "I'll give you a full refund.", reply: "\"Thank you, that's very fair.\"" },
+      { label: "Let's get you a replacement.", reply: "\"Perfect, I appreciate that!\"" },
+      { label: "I'm sorry, let me make it right.", reply: "\"Thank you for caring.\"" }
+    ]
+  },
+  {
+    q: "I waited in line for way too long today!",
+    options: [
+      { label: "I apologize, we'll add more staff.", reply: "\"Good, I hope that helps.\"" },
+      { label: "Here's a discount for next time.", reply: "\"That's generous, thank you!\"" },
+      { label: "Thanks so much for your patience.", reply: "\"You're welcome, I understand.\"" }
+    ]
+  },
+  {
+    q: "Someone was rude to me at the checkout!",
+    options: [
+      { label: "That's not okay, I'll address it.", reply: "\"Thank you for taking this seriously.\"" },
+      { label: "I'm so sorry, that's not who we are.", reply: "\"I appreciate you saying that.\"" },
+      { label: "Let me make your day better.", reply: "\"That already helps, thank you!\"" }
+    ]
+  },
+  {
+    q: "I got charged the wrong price for this!",
+    options: [
+      { label: "Let me fix that right away.", reply: "\"Thank you for sorting it out!\"" },
+      { label: "I'll refund the difference.", reply: "\"I appreciate that, thanks!\"" },
+      { label: "Sorry about that, here's the right price.", reply: "\"No worries, thanks for fixing it!\"" }
+    ]
+  },
+  {
+    q: "This shelf was a mess and hard to shop!",
+    options: [
+      { label: "I'll get it tidied up right now.", reply: "\"Thank you, that'll help a lot!\"" },
+      { label: "Sorry about that, I'll fix it.", reply: "\"I appreciate you listening.\"" },
+      { label: "Thanks for letting us know.", reply: "\"Of course, glad I could help!\"" }
+    ]
+  },
+  {
+    q: "Nobody could answer my questions earlier!",
+    needsHelp: true,
+    options: [
+      { label: "I'm happy to help you now.", reply: "\"Thank you, that means a lot!\"" },
+      { label: "Sorry about that, let's fix it.", reply: "\"I appreciate the effort!\"" },
+      { label: "Let me find you the right answers.", reply: "\"Great, thank you so much!\"" }
+    ]
+  },
+  {
+    q: "My order was missing something!",
+    needsBackroom: true,
+    options: [
+      { label: "I'll get that sent right away.", reply: "\"Thank you, I appreciate it!\"" },
+      { label: "So sorry, here's a refund for it.", reply: "\"That's very fair, thanks!\"" },
+      { label: "Let me track that down for you.", reply: "\"Thank you for checking!\"" }
+    ]
+  }
+];
+
+var officeBusy = false;
+var pendingComplaint = null;
+var pendingHelpItem = null;
+var lastComplaintIndex = -1;
+
+function pickComplaintIndex(){
+  if(complaintTemplates.length <= 1) return 0;
+  var idx;
+  do {
+    idx = Math.floor(Math.random()*complaintTemplates.length);
+  } while(idx === lastComplaintIndex);
+  lastComplaintIndex = idx;
+  return idx;
+}
+
+function callInComplaint(){
+  if(officeBusy) return;
+  officeBusy = true;
+  document.getElementById('officeBtn').style.display = 'none';
+  draw('charOffice');
+  var cust = document.getElementById('customerOffice');
+  cust.innerHTML = angryCustomerSvg();
+  cust.style.left = '-20%';
+  cust.style.top = '55%';
+  cust.style.opacity = '0';
+  document.getElementById('officeCaption').textContent = 'The door opens...';
+  playDoorChime();
+  openDoor('doorPanelOffice');
+
+  setTimeout(function(){
+    cust.style.opacity = '1';
+    cust.style.left = '30%';
+    document.getElementById('officeCaption').textContent = 'A customer comes in looking upset...';
+  }, 60);
+
+  setTimeout(function(){
+    closeDoor('doorPanelOffice');
+  }, 700);
+
+  setTimeout(function(){
+    pendingComplaint = pickComplaintIndex();
+    var t = complaintTemplates[pendingComplaint];
+    var bubble = document.getElementById('speechBubbleOffice');
+    bubble.textContent = t.q;
+    bubble.style.display = 'block';
+    document.getElementById('officeCaption').textContent = 'They have a complaint. How do you respond?';
+    buildOfficeOptions(t);
+    document.getElementById('officeOptionsWrap').style.display = 'block';
+    setTimeout(function(){
+      document.getElementById('officeOptionsWrap').scrollIntoView({behavior:'smooth', block:'center'});
+    }, 100);
+  }, 1600);
+}
+
+function buildOfficeOptions(t){
+  var opts = document.getElementById('officeOptions');
+  opts.innerHTML = '';
+  t.options.forEach(function(opt, i){
+    var btn = document.createElement('button');
+    btn.className = 'optionBtn';
+    btn.textContent = opt.label;
+    btn.onclick = function(){ resolveComplaint(i); };
+    opts.appendChild(btn);
+  });
+}
+
+function resolveComplaint(optIndex){
+  if(pendingComplaint === null) return;
+  var t = complaintTemplates[pendingComplaint];
+  var bubble = document.getElementById('speechBubbleOffice');
+  bubble.textContent = t.options[optIndex].reply;
+  document.getElementById('officeOptionsWrap').style.display = 'none';
+
+  if(t.needsHelp){
+    document.getElementById('officeCaption').textContent = "Let's help them find what they need!";
+    setTimeout(function(){
+      startHelpSession();
+    }, 1300);
+    return;
+  }
+
+  if(t.needsBackroom){
+    document.getElementById('officeCaption').textContent = "Time to go check the back of the store!";
+    setTimeout(function(){
+      goCheckBackroom();
+    }, 1300);
+    return;
+  }
+
+  document.getElementById('officeCaption').textContent = 'You resolved their complaint!';
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    pendingComplaint = null;
+    var base = 10 + Math.floor(Math.random()*11);
+    var payout = Math.round(base * jobTiers[jobTier].multiplier);
+    earnMoney(payout);
+    document.getElementById('officeCaption').textContent = 'Great job! You earned $' + payout + ' for helping them.';
+    var cust = document.getElementById('customerOffice');
+    cust.style.left = '120%';
+    setTimeout(function(){
+      cust.style.opacity = '0';
+      officeBusy = false;
+      document.getElementById('officeBtn').style.display = 'block';
+    }, 1100);
+  }, 1300);
+}
+
+var helpItemQuestions = [
+  { label: "Show them right where it is!", reply: "\"Perfect, thank you for showing me!\"" },
+  { label: "Grab one for them right now!", reply: "\"Wow, thank you for getting that so fast!\"" },
+  { label: "Check in the back for it!", reply: "\"Thank you for checking, I really appreciate it!\"" }
+];
+
+function startHelpSession(){
+  var item = shopItems[Math.floor(Math.random()*shopItems.length)];
+  pendingHelpItem = item;
+  var bubble = document.getElementById('speechBubbleOffice');
+  bubble.textContent = "Can you help me find some " + item.name.toLowerCase() + "?";
+  bubble.style.display = 'block';
+  document.getElementById('officeCaption').textContent = 'What do you do?';
+  var opts = document.getElementById('officeOptions');
+  opts.innerHTML = '';
+  helpItemQuestions.forEach(function(opt, i){
+    var btn = document.createElement('button');
+    btn.className = 'optionBtn';
+    btn.textContent = opt.label;
+    btn.onclick = function(){ answerHelpSession(i); };
+    opts.appendChild(btn);
+  });
+  document.getElementById('officeOptionsWrap').style.display = 'block';
+  setTimeout(function(){
+    document.getElementById('officeOptionsWrap').scrollIntoView({behavior:'smooth', block:'center'});
+  }, 100);
+}
+
+function answerHelpSession(optIndex){
+  var item = pendingHelpItem;
+  document.getElementById('officeOptionsWrap').style.display = 'none';
+  var icon = document.getElementById('helpItemIcon');
+  icon.innerHTML = item.svg;
+  icon.style.display = 'block';
+  var bubble = document.getElementById('speechBubbleOffice');
+  bubble.textContent = helpItemQuestions[optIndex].reply;
+  document.getElementById('officeCaption').textContent = 'You helped them find their ' + item.name.toLowerCase() + '!';
+
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    icon.style.display = 'none';
+    pendingComplaint = null;
+    pendingHelpItem = null;
+    var base = 14 + Math.floor(Math.random()*11);
+    var payout = Math.round(base * jobTiers[jobTier].multiplier);
+    earnMoney(payout);
+    document.getElementById('officeCaption').textContent = 'Great job! You earned $' + payout + ' for going above and beyond.';
+    var cust = document.getElementById('customerOffice');
+    cust.style.left = '120%';
+    setTimeout(function(){
+      cust.style.opacity = '0';
+      officeBusy = false;
+      document.getElementById('officeBtn').style.display = 'block';
+    }, 1100);
+  }, 1600);
+}
+
+var backroomHandoffOptions = [
+  { label: "Hand it to them with a smile!", reply: "\"Thank you so much, you're the best!\"" },
+  { label: "Package it up nicely for them!", reply: "\"Wow, that's such a nice touch!\"" },
+  { label: "Double check it's the right one!", reply: "\"I appreciate you making sure!\"" }
+];
+
+function goCheckBackroom(){
+  var bubble = document.getElementById('speechBubbleOffice');
+  bubble.style.display = 'none';
+  document.getElementById('officeCaption').textContent = 'You walk to the back of the store to check the stockroom...';
+  var origX = officeCharPos.x, origY = officeCharPos.y, origFacing = officeCharPos.facing;
+  officeCharPos.x = 96;
+  officeCharPos.facing = 1;
+  positionOfficeChar();
+
+  setTimeout(function(){
+    var item = shopItems[Math.floor(Math.random()*shopItems.length)];
+    pendingHelpItem = item;
+    document.getElementById('officeCaption').textContent = 'You found their ' + item.name.toLowerCase() + ' in the back!';
+    officeCharPos.x = origX; officeCharPos.y = origY; officeCharPos.facing = origFacing;
+    positionOfficeChar();
+    var icon = document.getElementById('helpItemIcon');
+    icon.innerHTML = item.svg;
+    icon.style.display = 'block';
+
+    setTimeout(function(){
+      var opts = document.getElementById('officeOptions');
+      opts.innerHTML = '';
+      backroomHandoffOptions.forEach(function(opt, i){
+        var btn = document.createElement('button');
+        btn.className = 'optionBtn';
+        btn.textContent = opt.label;
+        btn.onclick = function(){ finishBackroom(i); };
+        opts.appendChild(btn);
+      });
+      document.getElementById('officeOptionsWrap').style.display = 'block';
+      document.getElementById('officeCaption').textContent = 'How do you hand it over?';
+      setTimeout(function(){
+        document.getElementById('officeOptionsWrap').scrollIntoView({behavior:'smooth', block:'center'});
+      }, 100);
+    }, 900);
+  }, 1200);
+}
+
+function finishBackroom(optIndex){
+  document.getElementById('officeOptionsWrap').style.display = 'none';
+  var icon = document.getElementById('helpItemIcon');
+  var bubble = document.getElementById('speechBubbleOffice');
+  bubble.textContent = backroomHandoffOptions[optIndex].reply;
+  bubble.style.display = 'block';
+  document.getElementById('officeCaption').textContent = 'You gave them their ' + pendingHelpItem.name.toLowerCase() + '!';
+
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    icon.style.display = 'none';
+    pendingComplaint = null;
+    pendingHelpItem = null;
+    var base = 14 + Math.floor(Math.random()*11);
+    var payout = Math.round(base * jobTiers[jobTier].multiplier);
+    earnMoney(payout);
+    document.getElementById('officeCaption').textContent = 'Great job! You earned $' + payout + ' for tracking that down.';
+    var cust = document.getElementById('customerOffice');
+    cust.style.left = '120%';
+    setTimeout(function(){
+      cust.style.opacity = '0';
+      officeBusy = false;
+      document.getElementById('officeBtn').style.display = 'block';
+    }, 1100);
+  }, 1600);
+}
+
+function goToOffice(){
+  hideAllScreens();
+  document.getElementById('officeScreen').style.display = 'flex';
+  draw('charOffice');
+  var cust = document.getElementById('customerOffice');
+  cust.style.left = '-20%';
+  cust.style.top = '55%';
+  cust.style.opacity = '0';
+  cust.innerHTML = '';
+  closeDoor('doorPanelOffice');
+  document.getElementById('speechBubbleOffice').style.display = 'none';
+  document.getElementById('officeOptions').innerHTML = '';
+  document.getElementById('officeOptionsWrap').style.display = 'none';
+  document.getElementById('helpItemIcon').style.display = 'none';
+  pendingComplaint = null;
+  pendingHelpItem = null;
+  officeBusy = false;
+  document.getElementById('officeBtn').style.display = 'block';
+  var jt = jobTiers[jobTier];
+  document.getElementById('jobTitleBadgeOffice').textContent = '👔 ' + jt.title + (jt.multiplier > 1 ? ' (' + jt.multiplier + 'x pay)' : '');
+  document.getElementById('officeCaption').textContent = "Sit at your desk and wait for a customer to come with a complaint.";
+  officeCharPos.x = 50; officeCharPos.y = 68; officeCharPos.facing = 1;
+  positionOfficeChar();
+  document.getElementById('officeBox').onclick = officeRoomTap;
+  document.getElementById('officeDeskSpot').onclick = function(ev){ ev.stopPropagation(); callInComplaint(); };
+  document.getElementById('doorFrameOffice').onclick = function(ev){ ev.stopPropagation(); goToStoreAsManager(); };
+}
+
+/* ---- Movement inside friend's house ---- */
+var friendCharPos = { x:50, y:65, facing:1 };
+
+function positionFriendChar(){
+  var el = document.getElementById('charFriend');
+  el.style.left = friendCharPos.x + '%';
+  el.style.top = friendCharPos.y + '%';
+  el.style.transform = friendCharPos.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+  positionKid('kidFriend', friendCharPos.x, friendCharPos.y, friendCharPos.facing);
+}
+
+function moveFriendChar(dx, dy){
+  friendCharPos.x = Math.max(8, Math.min(92, friendCharPos.x + dx*8));
+  friendCharPos.y = Math.max(38, Math.min(88, friendCharPos.y + dy*8));
+  if(dx !== 0) friendCharPos.facing = dx;
+  positionFriendChar();
+}
+
+function friendRoomTap(e){
+  var box = document.getElementById('houseBoxFriend');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < friendCharPos.x) friendCharPos.facing = -1;
+  else if(px > friendCharPos.x) friendCharPos.facing = 1;
+  friendCharPos.x = Math.max(8, Math.min(92, px));
+  friendCharPos.y = Math.max(38, Math.min(88, py));
+  positionFriendChar();
+}
+
+/* ---- Movement inside work ---- */
+var workCharPos = { x:50, y:68, facing:1 };
+
+function positionWorkChar(){
+  var el = document.getElementById('charWork');
+  el.style.left = workCharPos.x + '%';
+  el.style.top = workCharPos.y + '%';
+  el.style.transform = workCharPos.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+  positionKid('kidWork', workCharPos.x, workCharPos.y, workCharPos.facing);
+}
+
+function moveWorkChar(dx, dy){
+  workCharPos.x = Math.max(8, Math.min(92, workCharPos.x + dx*8));
+  workCharPos.y = Math.max(40, Math.min(88, workCharPos.y + dy*8));
+  if(dx !== 0) workCharPos.facing = dx;
+  positionWorkChar();
+}
+
+function workRoomTap(e){
+  var box = document.getElementById('workBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < workCharPos.x) workCharPos.facing = -1;
+  else if(px > workCharPos.x) workCharPos.facing = 1;
+  workCharPos.x = Math.max(8, Math.min(92, px));
+  workCharPos.y = Math.max(40, Math.min(88, py));
+  positionWorkChar();
+}
+
+/* ---- Manager's Office ---- */
+var officeCharPos = { x:50, y:68, facing:1 };
+
+function positionOfficeChar(){
+  var el = document.getElementById('charOffice');
+  el.style.left = officeCharPos.x + '%';
+  el.style.top = officeCharPos.y + '%';
+  el.style.transform = officeCharPos.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+  positionKid('kidOffice', officeCharPos.x, officeCharPos.y, officeCharPos.facing);
+}
+
+function moveOfficeChar(dx, dy){
+  officeCharPos.x = Math.max(8, Math.min(92, officeCharPos.x + dx*8));
+  officeCharPos.y = Math.max(40, Math.min(88, officeCharPos.y + dy*8));
+  if(dx !== 0) officeCharPos.facing = dx;
+  positionOfficeChar();
+}
+
+function officeRoomTap(e){
+  var box = document.getElementById('officeBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < officeCharPos.x) officeCharPos.facing = -1;
+  else if(px > officeCharPos.x) officeCharPos.facing = 1;
+  officeCharPos.x = Math.max(8, Math.min(92, px));
+  officeCharPos.y = Math.max(40, Math.min(88, py));
+  positionOfficeChar();
+}
+
+/* ---- School ---- */
+var schoolCharPos = { x:50, y:68, facing:1 };
+var schoolTasks = [
+  "You aced your spelling test!",
+  "You made a new friend at recess!",
+  "You got a gold star on your art project!",
+  "You solved a tricky math problem!",
+  "Your teacher gave you a high five!"
+];
+
+function positionSchoolChar(){
+  var el = document.getElementById('charSchool');
+  el.style.left = schoolCharPos.x + '%';
+  el.style.top = schoolCharPos.y + '%';
+  el.style.transform = schoolCharPos.facing < 0 ? 'scaleX(-1)' : 'scaleX(1)';
+  positionKid('kidSchool', schoolCharPos.x, schoolCharPos.y, schoolCharPos.facing);
+}
+
+function moveSchoolChar(dx, dy){
+  schoolCharPos.x = Math.max(8, Math.min(92, schoolCharPos.x + dx*8));
+  schoolCharPos.y = Math.max(40, Math.min(88, schoolCharPos.y + dy*8));
+  if(dx !== 0) schoolCharPos.facing = dx;
+  positionSchoolChar();
+}
+
+function schoolRoomTap(e){
+  var box = document.getElementById('schoolBox');
+  var rect = box.getBoundingClientRect();
+  var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  var px = (clientX - rect.left) / rect.width * 100;
+  var py = (clientY - rect.top) / rect.height * 100;
+  if(px < schoolCharPos.x) schoolCharPos.facing = -1;
+  else if(px > schoolCharPos.x) schoolCharPos.facing = 1;
+  schoolCharPos.x = Math.max(8, Math.min(92, px));
+  schoolCharPos.y = Math.max(40, Math.min(88, py));
+  positionSchoolChar();
+}
+
+function schoolAgain(){
+  draw('charSchool');
+  document.getElementById('schoolCaption').textContent = schoolTasks[Math.floor(Math.random()*schoolTasks.length)];
+}
+
+function goToSchool(){
+  hideAllScreens();
+  document.getElementById('schoolScreen').style.display = 'flex';
+  schoolAgain();
+  schoolCharPos.x = 50; schoolCharPos.y = 68; schoolCharPos.facing = 1;
+  positionSchoolChar();
+  document.getElementById('schoolBox').onclick = schoolRoomTap;
+}
+
+function goToShop(){
+  navHouse();
+  setTimeout(function(){
+    var tray = document.getElementById('furnTray');
+    if(tray) tray.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 150);
+}
+
+function goNeighborhood(){
+  document.getElementById('houseScreen').style.display = 'none';
+  document.getElementById('neighborhoodScreen').style.display = 'flex';
+  drawRoad();
+  checkArrival();
+  var box = document.getElementById('roadBox');
+  box.onclick = roadTap;
+  Object.keys(friendHouses).forEach(function(key){
+    document.getElementById('marker-' + key).onclick = function(ev){ ev.stopPropagation(); enterHouse(key); };
+  });
+}
+
+function backToHouseFromRoad(){
+  document.getElementById('neighborhoodScreen').style.display = 'none';
+  document.getElementById('houseScreen').style.display = 'flex';
+}
+
+/* ---- Persistent top nav ---- */
+function hideAllScreens(){
+  ['houseScreen','neighborhoodScreen','friendHouseScreen','workScreen','schoolScreen','realtyScreen','careersScreen','officeScreen'].forEach(function(id){
+    document.getElementById(id).style.display = 'none';
+  });
+}
+
+function setActiveNav(id){
+  ['nav-house','nav-drive'].forEach(function(navId){
+    document.getElementById(navId).classList.remove('active');
+  });
+  if(id) document.getElementById(id).classList.add('active');
+}
+
+function navHouse(){
+  hideAllScreens();
+  document.getElementById('houseScreen').style.display = 'flex';
+  draw('houseChar');
+  refreshHouse();
+  positionChar();
+  document.getElementById('houseBox').onclick = roomTap;
+  updateTimeUI();
+  setActiveNav('nav-house');
+}
+
+function navDrive(){
+  hideAllScreens();
+  document.getElementById('neighborhoodScreen').style.display = 'flex';
+  drawRoad();
+  checkArrival();
+  var box = document.getElementById('roadBox');
+  box.onclick = roadTap;
+  Object.keys(friendHouses).forEach(function(key){
+    document.getElementById('marker-' + key).onclick = function(ev){ ev.stopPropagation(); enterHouse(key); };
+  });
+  document.getElementById('marker-shop').onclick = function(ev){ ev.stopPropagation(); goToShop(); };
+  document.getElementById('marker-work').onclick = function(ev){ ev.stopPropagation(); goToWork(); };
+  document.getElementById('marker-school').onclick = function(ev){ ev.stopPropagation(); goToSchool(); };
+  document.getElementById('marker-realty').onclick = function(ev){ ev.stopPropagation(); goToRealty(); };
+  document.getElementById('marker-careers').onclick = function(ev){ ev.stopPropagation(); goToCareers(); };
+  if(jobTier >= 1){
+    document.getElementById('marker-work-icon').textContent = '🏬';
+    document.getElementById('marker-work-label').textContent = 'Office';
+  } else {
+    document.getElementById('marker-work-icon').textContent = '🏢';
+    document.getElementById('marker-work-label').textContent = 'Work';
+  }
+  setActiveNav('nav-drive');
+}
+
+function goToRealty(){
+  hideAllScreens();
+  document.getElementById('realtyScreen').style.display = 'flex';
+  document.getElementById('realtyMsg').style.display = 'none';
+  renderRealty();
+}
+
+function renderRealty(){
+  var current = houseTiers[houseTier];
+  document.getElementById('currentHouseTier').textContent = 'You live in the: ' + current.name;
+  var card = document.getElementById('nextHouseTierCard');
+  var btn = document.getElementById('buyHouseBtn');
+  if(houseTier >= houseTiers.length - 1){
+    card.innerHTML = '<div style="font-weight:bold; color:#4fbf9f;">You already own the best home!</div>';
+    btn.style.display = 'none';
+    return;
+  }
+  var next = houseTiers[houseTier + 1];
+  card.innerHTML = '<div style="font-weight:bold; color:#7b2d8e;">Next up: ' + next.name + '</div>' +
+    '<div style="color:#555; margin-top:4px;">Unlocks new wall & floor colors, plus a fancier home!</div>' +
+    '<div style="font-weight:bold; color:#7a5c00; margin-top:6px;">Cost: $' + next.cost + '</div>';
+  btn.style.display = 'block';
+  btn.textContent = 'Buy Upgrade ($' + next.cost + ')';
+}
+
+function buyHouseUpgrade(){
+  var next = houseTiers[houseTier + 1];
+  if(!next) return;
+  var msg = document.getElementById('realtyMsg');
+  if(money < next.cost){
+    msg.textContent = "You need $" + next.cost + " to upgrade to the " + next.name + "!";
+    msg.style.display = 'block';
+    return;
+  }
+  money -= next.cost;
+  updateMoneyBadge();
+  houseTier++;
+  msg.style.display = 'none';
+  renderRealty();
+  saveGame();
+}
+
+function goToCareers(){
+  hideAllScreens();
+  document.getElementById('careersScreen').style.display = 'flex';
+  document.getElementById('careersMsg').style.display = 'none';
+  renderCareers();
+}
+
+function renderCareers(){
+  var current = jobTiers[jobTier];
+  document.getElementById('currentJobTier').textContent = 'Current job: ' + current.title;
+  var card = document.getElementById('nextJobTierCard');
+  var btn = document.getElementById('applyJobBtn');
+  if(jobTier >= jobTiers.length - 1){
+    card.innerHTML = '<div style="font-weight:bold; color:#4fbf9f;">You have the best job in town!</div>';
+    btn.style.display = 'none';
+    return;
+  }
+  var next = jobTiers[jobTier + 1];
+  card.innerHTML = '<div style="font-weight:bold; color:#7b2d8e;">Next up: ' + next.title + '</div>' +
+    '<div style="color:#555; margin-top:4px;">Earn ' + next.multiplier + 'x on every sale!</div>' +
+    '<div style="font-weight:bold; color:#7a5c00; margin-top:6px;">Requires: $' + next.requirement + ' saved up</div>';
+  btn.style.display = 'block';
+  btn.textContent = 'Apply for ' + next.title;
+}
+
+function applyForJob(){
+  var next = jobTiers[jobTier + 1];
+  if(!next) return;
+  var msg = document.getElementById('careersMsg');
+  if(money < next.requirement){
+    msg.textContent = "You need $" + next.requirement + " saved up to apply for " + next.title + "!";
+    msg.style.display = 'block';
+    return;
+  }
+  jobTier++;
+  msg.style.display = 'none';
+  renderCareers();
+  saveGame();
+}
+
+document.addEventListener('mousemove', dragMove);
+document.addEventListener('touchmove', dragMove, {passive:true});
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+window.addEventListener('beforeunload', saveGame);
+window.addEventListener('pagehide', saveGame);
+
+loadGame();
+var kidBtn = document.getElementById('kidToggle');
+kidBtn.textContent = kidFollowing ? '🧒 Kid: On' : '🧒 Kid: Off';
+kidBtn.classList.toggle('active', kidFollowing);
+navHouse();
+updateMoneyBadge();
+</script>
+
+</body>
+</html>
