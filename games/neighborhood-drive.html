@@ -37,6 +37,7 @@
     z-index: 10;
     gap: 8px;
   }
+  #hud.hide { display: none; }
   #hud-left { display: flex; flex-direction: column; gap: 6px; }
   #title {
     color: var(--panel-light);
@@ -1214,6 +1215,7 @@
 (function() {
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
+  const hudEl = document.getElementById('hud');
   const minimapCanvas = document.getElementById('minimap');
   const mctx = minimapCanvas.getContext('2d');
   const progressEl = document.getElementById('progress');
@@ -2368,6 +2370,8 @@
     deselectDecorItem();
     decorateBar.classList.remove('show');
     interiorEl.classList.add('show');
+    hudEl.classList.add('hide');
+    minimapCanvas.classList.add('hide');
 
     if (!hasSeenHouseTip) {
       hasSeenHouseTip = true;
@@ -2378,6 +2382,8 @@
 
   function exitHouse() {
     interiorEl.classList.remove('show');
+    hudEl.classList.remove('hide');
+    minimapCanvas.classList.remove('hide');
     dialogueBox.classList.remove('show');
     decorateBar.classList.remove('show');
     decorateMode = false;
