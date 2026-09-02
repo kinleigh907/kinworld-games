@@ -433,9 +433,73 @@
     display: flex;
     align-items: center;
   }
+
+  /* Reusable how-to-play tip overlay */
+  .tipOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(40,20,50,0.6);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .tipOverlay.show { display: flex; }
+  .tipCard {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    max-width: 340px;
+    width: 100%;
+    box-sizing: border-box;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .tipCard h2 { color: #7b2d8e; margin: 0 0 12px; font-size: 1.3em; }
+  .tipCard ul { list-style: none; margin: 0 0 16px; padding: 0; text-align: left; }
+  .tipCard li { margin-bottom: 10px; color: #555; font-size: 0.9em; line-height: 1.4; }
+  .tipCard button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #7b2d8e;
+    color: white;
+    font-weight: bold;
+    font-size: 1em;
+  }
 </style>
 </head>
 <body>
+
+<div id="introOverlay" class="tipOverlay">
+  <div class="tipCard">
+    <h2>🎮 How to Play</h2>
+    <ul>
+      <li>🕹️ Tap the arrows, or tap the floor, to move around.</li>
+      <li>🚗 Drive to visit friends, go to work, or go to school.</li>
+      <li>👕 Visit your Closet to dress up your character.</li>
+      <li>🛋️ Decorate your house with colors, wallpaper, and furniture from the shop.</li>
+      <li>💰 Earn money at work and level up your job and house!</li>
+    </ul>
+    <button onclick="dismissIntro()">Let's Play! ▶</button>
+  </div>
+</div>
+
+<div id="workTipOverlay" class="tipOverlay">
+  <div class="tipCard">
+    <h2>👔 Your First Day at Work</h2>
+    <ul>
+      <li>🛎️ Tap the register to open the store.</li>
+      <li>🚶 A customer will walk in and put items on the belt.</li>
+      <li>👆 Tap each item on the belt to scan it.</li>
+      <li>💵 Tap the register again to finish the sale and get paid!</li>
+    </ul>
+    <button onclick="dismissWorkTip()">Got it! ▶</button>
+  </div>
+</div>
 
 <div id="debugBox" style="display:none; position:fixed; bottom:0; left:0; width:100%; background:#ff4d4d; color:white; font-size:0.75em; padding:8px; z-index:999; box-sizing:border-box; word-break:break-word;"></div>
 
@@ -899,6 +963,21 @@ var jobTiers = [
 ];
 var jobTier = 0;
 
+var introSeen = false;
+var workTipSeen = false;
+
+function dismissIntro(){
+  introSeen = true;
+  document.getElementById('introOverlay').classList.remove('show');
+  saveGame();
+}
+
+function dismissWorkTip(){
+  workTipSeen = true;
+  document.getElementById('workTipOverlay').classList.remove('show');
+  saveGame();
+}
+
 function getWallColors(){
   var colors = wallColors.slice();
   for(var i=1; i<=houseTier; i++){ colors = colors.concat(houseTiers[i].extraWall); }
@@ -954,7 +1033,9 @@ function saveGame(){
       houseTier: houseTier,
       jobTier: jobTier,
       timeOfDay: timeOfDay,
-      character: s
+      character: s,
+      introSeen: introSeen,
+      workTipSeen: workTipSeen
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch(e){
@@ -985,6 +1066,8 @@ function loadGame(){
         if(typeof data.character[key] === 'number') s[key] = data.character[key];
       });
     }
+    if(typeof data.introSeen === 'boolean') introSeen = data.introSeen;
+    if(typeof data.workTipSeen === 'boolean') workTipSeen = data.workTipSeen;
   } catch(e){
     storageAvailable = false;
   }
@@ -2095,6 +2178,9 @@ function goToRegister(){
   document.getElementById('registerSpot').onclick = function(ev){ ev.stopPropagation(); ringRegister(); };
   var backBtn = document.getElementById('workBackBtn');
   backBtn.textContent = 'Back to the Car';
+  if(!workTipSeen){
+    document.getElementById('workTipOverlay').classList.add('show');
+  }
   backBtn.onclick = function(){ navDrive(); };
 }
 
@@ -2802,6 +2888,9 @@ kidBtn.textContent = kidFollowing ? '🧒 Kid: On' : '🧒 Kid: Off';
 kidBtn.classList.toggle('active', kidFollowing);
 navHouse();
 updateMoneyBadge();
+if(!introSeen){
+  document.getElementById('introOverlay').classList.add('show');
+}
 </script>
 
 </body>
