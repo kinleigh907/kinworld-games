@@ -103,6 +103,7 @@
     box-shadow: none;
   }
   #tohouse { background: #4fbf9f; margin-top: 10px; width: 100%; padding: 12px; border: none; border-radius: 10px; color: white; font-weight: bold; }
+  #closetBtn { background: #ff7aa2; margin-top: 8px; width: 100%; padding: 12px; border: none; border-radius: 10px; color: white; font-weight: bold; }
 
   /* House screen */
   #houseScreen {
@@ -112,6 +113,28 @@
     flex-direction: column;
     align-items: center;
   }
+
+  /* Closet / dress-up screen */
+  #closetScreen {
+    display: none;
+    width: 100%;
+    max-width: 420px;
+    flex-direction: column;
+    align-items: center;
+  }
+  #closetBox {
+    width: 100%;
+    max-width: 220px;
+    height: 220px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fdf1f7 0%, #f5eefa 100%);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  #closetChar { width: 160px; height: 187px; }
   #houseBox {
     position: relative;
     width: 100%;
@@ -456,6 +479,7 @@
   </div>
 
   <button id="tohouse" onclick="navDrive()">🚗 Drive to Friends' Houses</button>
+  <button id="closetBtn" onclick="navCloset()">👕 Dress Up</button>
 
   <div class="panel">
     <div class="row">
@@ -476,6 +500,49 @@
       <div id="shopMsg"></div>
     </div>
   </div>
+</div>
+
+<div id="closetScreen">
+  <div id="closetBox">
+    <svg id="closetChar" viewBox="0 0 180 210"></svg>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <span class="label">Skin Tone</span>
+      <div class="dots" id="skinDots"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Hair Style</span>
+      <div class="chips" id="hairStyleChips"></div>
+    </div>
+    <div class="row">
+      <span class="label">Hair Color</span>
+      <div class="dots" id="hairColorDots"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Eyes</span>
+      <div class="chips" id="eyeChips"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Outfit</span>
+      <div class="chips" id="outfitStyleChips"></div>
+    </div>
+    <div class="row">
+      <span class="label">Outfit Color</span>
+      <div class="dots" id="outfitColorDots"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Pattern</span>
+      <div class="chips" id="patternChips"></div>
+    </div>
+    <div class="row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+      <span class="label">Accessory</span>
+      <div class="chips" id="accessoryChips"></div>
+    </div>
+  </div>
+
+  <button id="tohouse" onclick="navHouse()">Back Home</button>
 </div>
 
 <div id="neighborhoodScreen">
@@ -790,6 +857,12 @@ var outfitStyles = ['dress','shirt','jumpsuit','gown','skirt'];
 var patterns = ['plain','stripes','dots','stars'];
 var accessories = ['none','glasses','bow','hat','flower'];
 
+var hairStyleLabels = ['Short','Ponytail','Bald','Spiky','Curly','Buns'];
+var eyeStyleLabels = ['Round','Happy','Wide','Wink'];
+var outfitStyleLabels = ['Dress','Shirt','Jumpsuit','Gown','Skirt'];
+var patternLabels = ['Plain','Stripes','Dots','Stars'];
+var accessoryLabels = ['None','Glasses','Bow','Hat','Flower'];
+
 var s = { skin:0, hairColor:0, hair:0, eyes:0, outfit:0, outfitStyle:0, pattern:0, accessory:0 };
 
 var wallColors = ['#ffe9c7','#c9f0ff','#d9f2d0','#ffd6e8','#e6dcff','#fff3b0'];
@@ -867,7 +940,8 @@ function saveGame(){
       kidFollowing: kidFollowing,
       houseTier: houseTier,
       jobTier: jobTier,
-      timeOfDay: timeOfDay
+      timeOfDay: timeOfDay,
+      character: s
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch(e){
@@ -893,6 +967,11 @@ function loadGame(){
     if(typeof data.houseTier === 'number') houseTier = Math.min(data.houseTier, houseTiers.length - 1);
     if(typeof data.jobTier === 'number') jobTier = Math.min(data.jobTier, jobTiers.length - 1);
     if(data.timeOfDay === 'day' || data.timeOfDay === 'night') timeOfDay = data.timeOfDay;
+    if(data.character){
+      Object.keys(s).forEach(function(key){
+        if(typeof data.character[key] === 'number') s[key] = data.character[key];
+      });
+    }
   } catch(e){
     storageAvailable = false;
   }
@@ -1008,6 +1087,48 @@ function houseDots(id, colors, key){
     d.onclick = function(){ h[key]=i; refreshHouse(); saveGame(); };
     el.appendChild(d);
   });
+}
+
+function charDots(id, colors, key){
+  var el = document.getElementById(id);
+  el.innerHTML = '';
+  colors.forEach(function(c,i){
+    var d = document.createElement('div');
+    d.className = 'dot' + (s[key]===i ? ' sel' : '');
+    d.style.background = c;
+    d.onclick = function(){ s[key]=i; updateCloset(); saveGame(); };
+    el.appendChild(d);
+  });
+}
+
+function charChips(id, labels, key){
+  var el = document.getElementById(id);
+  el.innerHTML = '';
+  labels.forEach(function(label,i){
+    var c = document.createElement('div');
+    c.className = 'chip' + (s[key]===i ? ' on' : '');
+    c.textContent = label;
+    c.onclick = function(){ s[key]=i; updateCloset(); saveGame(); };
+    el.appendChild(c);
+  });
+}
+
+function updateCloset(){
+  draw('closetChar');
+  charDots('skinDots', skins, 'skin');
+  charDots('hairColorDots', hairColors, 'hairColor');
+  charDots('outfitColorDots', outfits, 'outfit');
+  charChips('hairStyleChips', hairStyleLabels, 'hair');
+  charChips('eyeChips', eyeStyleLabels, 'eyes');
+  charChips('outfitStyleChips', outfitStyleLabels, 'outfitStyle');
+  charChips('patternChips', patternLabels, 'pattern');
+  charChips('accessoryChips', accessoryLabels, 'accessory');
+}
+
+function navCloset(){
+  hideAllScreens();
+  document.getElementById('closetScreen').style.display = 'flex';
+  updateCloset();
 }
 
 function buildFurnChips(){
@@ -2451,7 +2572,7 @@ function backToHouseFromRoad(){
 
 /* ---- Persistent top nav ---- */
 function hideAllScreens(){
-  ['houseScreen','neighborhoodScreen','friendHouseScreen','workScreen','schoolScreen','realtyScreen','careersScreen','officeScreen'].forEach(function(id){
+  ['houseScreen','closetScreen','neighborhoodScreen','friendHouseScreen','workScreen','schoolScreen','realtyScreen','careersScreen','officeScreen'].forEach(function(id){
     document.getElementById(id).style.display = 'none';
   });
 }
