@@ -515,9 +515,11 @@
 <div style="font-size:0.7em; color:#aaa; margin-bottom:6px;">version: kinleigh-v5 (deploy test)</div>
 
 <div id="houseScreen">
+  <div id="houseTierBadge" style="text-align:center; font-weight:bold; color:#7b2d8e; background:#fff3b0; border:2px solid #e0c34a; border-radius:12px; padding:6px 10px; margin-bottom:8px; max-width:400px;">🏠 Starter Home</div>
   <div id="houseBox">
     <svg id="wall" viewBox="0 0 400 220" preserveAspectRatio="none"></svg>
     <svg id="floor" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
+    <div id="houseDeco" style="position:absolute; left:50%; top:2%; transform:translateX(-50%); z-index:2; pointer-events:none;"></div>
     <div id="furniture"></div>
     <svg id="houseChar" viewBox="0 0 180 210"></svg>
     <svg id="kidHouse" class="kid" viewBox="0 0 60 70"></svg>
@@ -794,17 +796,12 @@
         <div style="position:absolute; right:6px; top:48%; width:6px; height:6px; border-radius:50%; background:#ffd93d;"></div>
       </div>
     </div>
-    <div style="position:absolute; left:50%; top:10%; transform:translateX(-50%); width:90px; height:40px; z-index:2;">
-      <svg viewBox="0 0 90 40" width="100%" height="100%">
-        <rect x="0" y="0" width="90" height="40" fill="#f5eedc" stroke="#c9a24a" stroke-width="3"/>
-        <text x="45" y="18" font-size="8" text-anchor="middle" fill="#7a5c00" font-weight="bold">EMPLOYEE OF</text>
-        <text x="45" y="30" font-size="8" text-anchor="middle" fill="#7a5c00" font-weight="bold">THE MONTH</text>
-      </svg>
-    </div>
+    <div id="officePlaque" style="position:absolute; left:50%; top:10%; transform:translateX(-50%); width:110px; min-height:40px; z-index:2; background:#f5eedc; border:3px solid #c9a24a; box-sizing:border-box; display:flex; align-items:center; justify-content:center; text-align:center; font-size:0.6em; font-weight:bold; color:#7a5c00; padding:4px;">EMPLOYEE OF THE MONTH</div>
+    <div id="officeDeco" style="position:absolute; right:5%; top:8%; z-index:2;"></div>
     <div id="officeDeskSpot" style="position:absolute; left:50%; top:70%; transform:translateX(-50%); width:140px; height:66px; cursor:pointer; z-index:10;">
       <svg viewBox="0 0 140 66" width="100%" height="100%">
-        <rect x="0" y="30" width="140" height="30" rx="4" fill="#6b4423"/>
-        <rect x="0" y="30" width="140" height="6" fill="#8a5a38"/>
+        <rect id="deskTop" x="0" y="30" width="140" height="30" rx="4" fill="#6b4423"/>
+        <rect id="deskEdge" x="0" y="30" width="140" height="6" fill="#8a5a38"/>
         <rect x="10" y="36" width="30" height="20" fill="#4f381f"/>
         <rect x="100" y="36" width="30" height="20" fill="#4f381f"/>
         <rect x="55" y="4" width="30" height="26" fill="#e0e0e0"/>
@@ -948,18 +945,29 @@ var h = { wall:0, floor:0, wallPattern:0, charX:50, charY:65, facing:1, furnitur
 var wallPatterns = ['plain','stripes','dots'];
 
 var houseTiers = [
-  { name: 'Starter Home', cost: 0, extraWall: [], extraFloor: [], glow: '0 4px 14px rgba(0,0,0,0.2)' },
-  { name: 'Cozy Cottage', cost: 80, extraWall: ['#ffb3c6','#b3e0ff'], extraFloor: ['#8a5a38','#e6c9a8'], glow: '0 0 0 4px #ffd93d, 0 4px 14px rgba(0,0,0,0.2)' },
-  { name: 'Modern Home', cost: 250, extraWall: ['#c8b6ff','#a0e8d8'], extraFloor: ['#4a4a4a','#f7e8c8'], glow: '0 0 0 4px #54a0ff, 0 4px 18px rgba(0,0,0,0.3)' },
-  { name: 'Luxury Mansion', cost: 600, extraWall: ['#ffd700','#ff9ff3'], extraFloor: ['#2d1a0f','#ffffff'], glow: '0 0 0 5px #ff6b6b, 0 0 24px rgba(255,215,0,0.6), 0 4px 20px rgba(0,0,0,0.35)' }
+  { name: 'Starter Home', cost: 0, extraWall: [], extraFloor: [], glow: '0 4px 14px rgba(0,0,0,0.2)', height: 300, deco: '' },
+  { name: 'Cozy Cottage', cost: 80, extraWall: ['#ffb3c6','#b3e0ff'], extraFloor: ['#8a5a38','#e6c9a8'], glow: '0 0 0 4px #ffd93d, 0 4px 14px rgba(0,0,0,0.2)', height: 315, deco:
+    '<svg viewBox="0 0 60 50" width="60" height="50"><line x1="30" y1="0" x2="30" y2="14" stroke="#5a3d1f" stroke-width="2"/><path d="M14 14 L46 14 L38 34 L22 34 Z" fill="#ffd98a" stroke="#c9a24a" stroke-width="1.5"/></svg>' },
+  { name: 'Modern Home', cost: 250, extraWall: ['#c8b6ff','#a0e8d8'], extraFloor: ['#4a4a4a','#f7e8c8'], glow: '0 0 0 4px #54a0ff, 0 4px 18px rgba(0,0,0,0.3)', height: 330, deco:
+    '<svg viewBox="0 0 70 40" width="70" height="40"><ellipse cx="35" cy="10" rx="26" ry="6" fill="#e0e0e0" stroke="#aaa" stroke-width="1.5"/><rect x="30" y="10" width="10" height="18" fill="#cfcfcf"/><circle cx="35" cy="30" r="7" fill="#fff3b0"/></svg>' },
+  { name: 'Luxury Mansion', cost: 600, extraWall: ['#ffd700','#ff9ff3'], extraFloor: ['#2d1a0f','#ffffff'], glow: '0 0 0 5px #ff6b6b, 0 0 24px rgba(255,215,0,0.6), 0 4px 20px rgba(0,0,0,0.35)', height: 350, deco:
+    '<svg viewBox="0 0 100 60" width="100" height="60"><line x1="50" y1="0" x2="50" y2="14" stroke="#8a6d1a" stroke-width="2"/><ellipse cx="50" cy="16" rx="34" ry="5" fill="#d4af37"/><line x1="20" y1="16" x2="14" y2="36" stroke="#d4af37" stroke-width="2"/><line x1="50" y1="16" x2="50" y2="40" stroke="#d4af37" stroke-width="2"/><line x1="80" y1="16" x2="86" y2="36" stroke="#d4af37" stroke-width="2"/><circle cx="14" cy="38" r="5" fill="#fff3b0"/><circle cx="50" cy="42" r="6" fill="#fff3b0"/><circle cx="86" cy="38" r="5" fill="#fff3b0"/></svg>' }
 ];
 var houseTier = 0;
 
 var jobTiers = [
   { title: 'Cashier', requirement: 0, multiplier: 1 },
-  { title: 'Store Manager', requirement: 100, multiplier: 1.5 },
-  { title: 'Store Owner', requirement: 300, multiplier: 2 },
-  { title: 'Business Mogul', requirement: 700, multiplier: 3 }
+  { title: 'Store Manager', requirement: 100, multiplier: 1.5,
+    bgTop: '#e8ddc8', bgBottom: '#b89968', deskColor: '#6b4423', glow: '0 4px 14px rgba(0,0,0,0.2)',
+    plaque: 'EMPLOYEE OF THE MONTH', deco: '' },
+  { title: 'Store Owner', requirement: 300, multiplier: 2,
+    bgTop: '#dce6ea', bgBottom: '#8fa6ae', deskColor: '#4a5a5e', glow: '0 0 0 4px #54a0ff, 0 4px 18px rgba(0,0,0,0.3)',
+    plaque: 'STORE OWNER OF THE YEAR', deco:
+      '<svg viewBox="0 0 40 60" width="40" height="60"><path d="M20 30 Q4 22 10 4 Q20 10 20 30 Q20 10 30 4 Q36 22 20 30" fill="#4caf50"/><path d="M14 30 L26 30 L23 55 L17 55 Z" fill="#a05a2c"/></svg>' },
+  { title: 'Business Mogul', requirement: 700, multiplier: 3,
+    bgTop: '#1c2b40', bgBottom: '#0d1622', deskColor: '#3d2f14', glow: '0 0 0 5px #d4af37, 0 0 24px rgba(212,175,55,0.6), 0 4px 20px rgba(0,0,0,0.35)',
+    plaque: 'TOP EXECUTIVE', deco:
+      '<svg viewBox="0 0 80 60" width="80" height="60"><rect x="0" y="0" width="80" height="60" fill="#0f2a4a" stroke="#d4af37" stroke-width="3"/><rect x="6" y="30" width="10" height="26" fill="#1c3d63"/><rect x="20" y="18" width="12" height="38" fill="#254b78"/><rect x="36" y="26" width="10" height="30" fill="#1c3d63"/><rect x="50" y="10" width="14" height="46" fill="#254b78"/><rect x="68" y="34" width="8" height="22" fill="#1c3d63"/><circle cx="60" cy="16" r="4" fill="#ffd93d"/></svg>' }
 ];
 var jobTier = 0;
 
@@ -1444,8 +1452,14 @@ function refreshHouse(){
 }
 
 function applyHouseTierStyle(){
+  var tier = houseTiers[houseTier];
   var box = document.getElementById('houseBox');
-  if(box) box.style.boxShadow = houseTiers[houseTier].glow;
+  if(box){
+    box.style.boxShadow = tier.glow;
+    box.style.height = tier.height + 'px';
+  }
+  document.getElementById('houseDeco').innerHTML = tier.deco;
+  document.getElementById('houseTierBadge').textContent = '🏠 ' + tier.name;
 }
 
 function buildWallPatternChips(){
@@ -2510,6 +2524,13 @@ function goToOffice(){
   var jt = jobTiers[jobTier];
   document.getElementById('jobTitleBadgeOffice').textContent = '👔 ' + jt.title + (jt.multiplier > 1 ? ' (' + jt.multiplier + 'x pay)' : '');
   document.getElementById('officeCaption').textContent = "Sit at your desk and wait for a customer to come with a complaint.";
+  var officeBox = document.getElementById('officeBox');
+  officeBox.style.background = 'linear-gradient(180deg, ' + jt.bgTop + ' 0%, ' + jt.bgTop + ' 65%, ' + jt.bgBottom + ' 65%, ' + jt.bgBottom + ' 100%)';
+  officeBox.style.boxShadow = jt.glow;
+  document.getElementById('officePlaque').textContent = jt.plaque;
+  document.getElementById('officeDeco').innerHTML = jt.deco;
+  document.getElementById('deskTop').setAttribute('fill', jt.deskColor);
+  document.getElementById('deskEdge').setAttribute('fill', jt.deskColor);
   officeCharPos.x = 50; officeCharPos.y = 68; officeCharPos.facing = 1;
   positionOfficeChar();
   document.getElementById('officeBox').onclick = officeRoomTap;
@@ -2854,7 +2875,7 @@ function renderCareers(){
   }
   var next = jobTiers[jobTier + 1];
   card.innerHTML = '<div style="font-weight:bold; color:#7b2d8e;">Next up: ' + next.title + '</div>' +
-    '<div style="color:#555; margin-top:4px;">Earn ' + next.multiplier + 'x on every sale!</div>' +
+    '<div style="color:#555; margin-top:4px;">Earn ' + next.multiplier + 'x on every sale, plus a fancier office!</div>' +
     '<div style="font-weight:bold; color:#7a5c00; margin-top:6px;">Requires: $' + next.requirement + ' saved up</div>';
   btn.style.display = 'block';
   btn.textContent = 'Apply for ' + next.title;
