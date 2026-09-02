@@ -199,6 +199,13 @@
     cursor: grab;
     touch-action: none;
   }
+  .deskSpot {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .deskSpot.occupied {
+    filter: drop-shadow(0 0 4px #4fbf9f);
+  }
   .furn.dragging {
     z-index: 20;
     opacity: 0.85;
@@ -785,7 +792,13 @@
     </div>
     <svg id="charSchool" viewBox="0 0 180 210" style="position:absolute; width:90px; height:105px; margin-left:-45px; margin-top:-90px; z-index:5; transition: left 0.35s linear, top 0.35s linear; pointer-events:none;"></svg>
     <svg id="kidSchool" class="kid" viewBox="0 0 60 70"></svg>
+    <svg id="teacherSchool" viewBox="0 0 56 80" style="position:absolute; left:50%; top:40%; width:50px; height:71px; margin-left:-25px; margin-top:-30px; z-index:4;"></svg>
+    <div id="speechBubbleSchool" style="position:absolute; left:50%; top:4%; transform:translateX(-50%); width:230px; z-index:11; display:none; background:white; border:3px solid #7b2d8e; border-radius:14px; padding:8px 12px; font-size:0.8em; font-weight:bold; color:#333; text-align:center; box-shadow:0 3px 8px rgba(0,0,0,0.2);"></div>
+    <div class="deskSpot" data-desk="0" style="position:absolute; left:26%; top:74%; width:54px; height:45px; margin-left:-27px; margin-top:-22px; z-index:2;"></div>
+    <div class="deskSpot" data-desk="1" style="position:absolute; left:50%; top:78%; width:54px; height:45px; margin-left:-27px; margin-top:-22px; z-index:2;"></div>
+    <div class="deskSpot" data-desk="2" style="position:absolute; left:74%; top:74%; width:54px; height:45px; margin-left:-27px; margin-top:-22px; z-index:2;"></div>
   </div>
+  <div style="color:#888; text-align:center; font-size:0.75em; margin-top:6px;">✏️ Tap a desk to sit down and learn from your teacher!</div>
   <div id="dpadSchool">
     <div class="empty"></div>
     <button onclick="moveSchoolChar(0,-1)">&#9650;</button>
@@ -1681,6 +1694,28 @@ function cashierOkaySvg(){
     '<rect x="18" y="55" width="20" height="6" rx="1" fill="#ffd93d"/>';
 }
 
+function teacherSvg(){
+  return '<ellipse cx="28" cy="76" rx="17" ry="4" fill="rgba(0,0,0,0.08)"/>' +
+    '<path d="M13 46 Q28 38 43 46 L46 72 Q28 81 10 72 Z" fill="#e07a9e"/>' +
+    '<rect x="9" y="50" width="38" height="8" fill="#fff3d6"/>' +
+    '<circle cx="28" cy="23" r="17" fill="#c68642"/>' +
+    '<path d="M11 24 Q10 2 28 2 Q46 2 45 24 Q44 12 28 14 Q12 12 11 24 Z" fill="#2d2016"/>' +
+    '<circle cx="22" cy="24" r="2.1" fill="#2d2d2d"/>' +
+    '<circle cx="34" cy="24" r="2.1" fill="#2d2d2d"/>' +
+    '<path d="M21 31 Q28 36 35 31" stroke="#a13a3a" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<rect x="1" y="60" width="14" height="4" rx="2" fill="#7b2d8e" transform="rotate(-18 8 62)"/>';
+}
+
+function deskSvg(){
+  return '<svg viewBox="0 0 60 50" width="100%" height="100%">' +
+    '<rect x="6" y="30" width="6" height="16" fill="#8a5a38"/>' +
+    '<rect x="48" y="30" width="6" height="16" fill="#8a5a38"/>' +
+    '<rect x="2" y="18" width="56" height="10" rx="2" fill="#deac6f"/>' +
+    '<rect x="14" y="9" width="18" height="12" rx="1" fill="#f4c542" transform="rotate(-6 23 15)"/>' +
+    '<line x1="16" y1="12" x2="30" y2="10" stroke="#c9a13a" stroke-width="1" transform="rotate(-6 23 15)"/>' +
+    '</svg>';
+}
+
 var feedbackChoices = [
   { label: "You need to be nicer to customers!", reply: "\"I'm sorry, I'll do better.\"", mood: 'sad' },
   { label: "Let's work on being a bit kinder, okay?", reply: "\"Thanks for being so understanding!\"", mood: 'okay' },
@@ -2502,6 +2537,47 @@ var schoolTasks = [
   "Your teacher gave you a high five!"
 ];
 
+var deskSpots = [
+  { x:26, y:74 },
+  { x:50, y:78 },
+  { x:74, y:74 }
+];
+
+var lessonLines = [
+  "Today we're learning about fractions!",
+  "Let's practice our spelling words!",
+  "Time for a fun science experiment!",
+  "Who can tell me the capital of France?",
+  "Let's read a chapter of our book together!",
+  "Great job raising your hand!"
+];
+var teachBusy = false;
+
+function teacherTeach(){
+  if(teachBusy) return;
+  teachBusy = true;
+  var bubble = document.getElementById('speechBubbleSchool');
+  bubble.textContent = lessonLines[Math.floor(Math.random()*lessonLines.length)];
+  bubble.style.display = 'block';
+  setTimeout(function(){
+    bubble.style.display = 'none';
+    teachBusy = false;
+    schoolAgain();
+  }, 2200);
+}
+
+function sitAtDesk(i){
+  var desk = deskSpots[i];
+  schoolCharPos.x = desk.x;
+  schoolCharPos.y = desk.y - 4;
+  schoolCharPos.facing = 1;
+  positionSchoolChar();
+  document.querySelectorAll('.deskSpot').forEach(function(d, idx){
+    d.classList.toggle('occupied', idx === i);
+  });
+  teacherTeach();
+}
+
 function positionSchoolChar(){
   var el = document.getElementById('charSchool');
   el.style.left = schoolCharPos.x + '%';
@@ -2539,10 +2615,21 @@ function schoolAgain(){
 function goToSchool(){
   hideAllScreens();
   document.getElementById('schoolScreen').style.display = 'flex';
+  document.getElementById('teacherSchool').innerHTML = teacherSvg();
+  document.getElementById('speechBubbleSchool').style.display = 'none';
+  teachBusy = false;
   schoolAgain();
   schoolCharPos.x = 50; schoolCharPos.y = 68; schoolCharPos.facing = 1;
   positionSchoolChar();
   document.getElementById('schoolBox').onclick = schoolRoomTap;
+  document.querySelectorAll('.deskSpot').forEach(function(d){
+    d.classList.remove('occupied');
+    d.innerHTML = deskSvg();
+    d.onclick = function(ev){
+      ev.stopPropagation();
+      sitAtDesk(parseInt(d.getAttribute('data-desk'), 10));
+    };
+  });
 }
 
 function goToShop(){
