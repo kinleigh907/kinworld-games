@@ -1,0 +1,3145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Neighborhood Drive</title>
+<style>
+  :root {
+    --road: #4a4e57;
+    --panel: #1f2937;
+    --panel-light: #f2e9dc;
+    --accent: #f2a65a;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #10141c;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100%;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #hud {
+    position: absolute;
+    top: 10px; left: 10px; right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    z-index: 10;
+    gap: 8px;
+  }
+  #hud-left { display: flex; flex-direction: column; gap: 6px; }
+  #title {
+    color: var(--panel-light);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    background: rgba(31,41,55,0.75);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(242,166,90,0.4);
+  }
+  #customize-btn, #decorate-btn, #names-btn, #card-btn {
+    background: rgba(31,41,55,0.75);
+    color: var(--panel-light);
+    border: 1px solid rgba(242,166,90,0.4);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  #progress {
+    color: var(--panel-light);
+    font-weight: 600;
+    font-size: 14px;
+    background: rgba(31,41,55,0.75);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(242,166,90,0.4);
+  }
+  #hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #level-badge {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 12px;
+    background: rgba(31,41,55,0.75);
+    padding: 5px 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(242,166,90,0.4);
+  }
+  #level-badge:empty { display: none; }
+  canvas {
+    display: block;
+    background: #5c8a4f;
+    touch-action: none;
+    max-width: 100%;
+    max-height: 100%;
+  }
+  #minimap {
+    position: absolute;
+    bottom: 150px;
+    right: 14px;
+    width: 108px;
+    height: 108px;
+    max-width: 108px;
+    max-height: 108px;
+    border-radius: 50%;
+    background: rgba(20,24,32,0.75);
+    border: 2px solid rgba(242,166,90,0.6);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+    z-index: 12;
+    pointer-events: none;
+  }
+  #minimap.hide { display: none; }
+  #toast {
+    position: absolute;
+    top: 50px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--accent);
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 20;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  #controls {
+    position: absolute;
+    bottom: 18px;
+    left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0 18px;
+    z-index: 10;
+  }
+  #joystick-zone {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(31,41,55,0.55);
+    border: 2px solid rgba(242,166,90,0.5);
+    position: relative;
+    touch-action: none;
+  }
+  #joystick-nub {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--accent);
+    position: absolute;
+    top: 36px; left: 36px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    transition: transform 0.05s linear;
+    pointer-events: none;
+  }
+  #speed-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+  #boost-btn, #slow-btn {
+    width: 66px; height: 66px;
+    border-radius: 50%;
+    background: rgba(31,41,55,0.7);
+    color: var(--panel-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 20px;
+    cursor: pointer;
+    touch-action: none;
+    transition: background 0.1s ease, border-color 0.1s ease, transform 0.1s ease;
+  }
+  #boost-btn { border: 3px solid rgba(242,166,90,0.6); }
+  #slow-btn { border: 3px solid rgba(94,166,214,0.6); }
+  #boost-btn span, #slow-btn span { font-size: 9px; font-weight: 800; letter-spacing: 0.5px; }
+  #boost-btn.active {
+    background: var(--accent);
+    border-color: #fff;
+    color: #1f2937;
+    transform: scale(1.08);
+    box-shadow: 0 0 18px rgba(242,166,90,0.7);
+  }
+  #slow-btn.active {
+    background: #5ea6d6;
+    border-color: #fff;
+    color: #1f2937;
+    transform: scale(1.08);
+    box-shadow: 0 0 18px rgba(94,166,214,0.7);
+  }
+  #hint {
+    position: absolute;
+    bottom: 172px;
+    left: 14px;
+    right: 14px;
+    color: var(--panel-light);
+    font-size: 11px;
+    opacity: 0.6;
+    z-index: 10;
+    text-align: center;
+  }
+
+  #enter-prompt, #talk-prompt, #talk-prompt2 {
+    position: absolute;
+    left: 50%;
+    bottom: 160px;
+    transform: translateX(-50%) scale(0.9);
+    background: var(--panel);
+    color: var(--panel-light);
+    border: 2px solid var(--accent);
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-weight: 700;
+    font-size: 14px;
+    z-index: 33;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  #enter-prompt.show, #talk-prompt.show, #talk-prompt2.show { display: flex; pointer-events: auto; }
+  @keyframes pulse {
+    0%, 100% { transform: translateX(-50%) scale(0.96); }
+    50% { transform: translateX(-50%) scale(1.03); }
+  }
+
+  #win {
+    position: absolute;
+    inset: 0;
+    background: rgba(16,20,28,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 40;
+    color: var(--panel-light);
+    text-align: center;
+    padding: 20px;
+  }
+  #win.show { display: flex; }
+  #win h2 { font-size: 24px; margin: 0 0 8px; color: var(--accent); }
+  #win p { margin: 0 0 18px; font-size: 14px; opacity: 0.85; }
+  #win button {
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 22px;
+    border-radius: 24px;
+    cursor: pointer;
+  }
+
+  #interior {
+    position: absolute;
+    inset: 0;
+    z-index: 25;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* let touches pass through to the joystick underneath */
+  }
+  #interior.show { display: flex; }
+  #room-canvas { display: block; max-width: 100%; max-height: 100%; pointer-events: auto; }
+  #leave-btn {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 34;
+    background: rgba(31,41,55,0.8);
+    color: var(--panel-light);
+    border: 1px solid rgba(242,166,90,0.5);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+  #decorate-btn {
+    position: absolute;
+    top: 46px;
+    left: 10px;
+    z-index: 34;
+    pointer-events: auto;
+  }
+  #house-label {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(31,41,55,0.75);
+    color: var(--panel-light);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(242,166,90,0.4);
+    z-index: 26;
+  }
+
+  #dialogue-box {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 36;
+    display: none;
+    background: rgba(20,24,32,0.94);
+    border-top: 3px solid var(--accent);
+    padding: 14px 18px 16px;
+    color: var(--panel-light);
+    box-shadow: 0 -6px 20px rgba(0,0,0,0.35);
+  }
+  #dialogue-box.show { display: block; pointer-events: auto; }
+  #npc-name { font-weight: 800; font-size: 15px; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.3px; }
+  #npc-line { font-size: 15px; line-height: 1.5; min-height: 44px; }
+  #npc-line.quiz-feedback {
+    font-size: 26px;
+    font-weight: 900;
+    text-align: center;
+    line-height: 1.3;
+    padding: 6px 0;
+  }
+  #npc-line.quiz-correct { color: #2ecc71; }
+  #npc-line.quiz-wrong { color: #ff8a80; }
+  #dialogue-actions { display: flex; justify-content: flex-end; margin-top: 10px; }
+  #dialogue-next {
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 9px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+
+  #quiz-answers {
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  #quiz-answers.show { display: flex; }
+  .quiz-answer-btn {
+    flex: 1 1 auto;
+    min-width: 64px;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid transparent;
+    color: var(--panel-light);
+    font-weight: 800;
+    font-size: 16px;
+    padding: 12px;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+  .quiz-answer-btn.correct { border-color: #2ecc71; background: rgba(46,204,113,0.2); }
+  .quiz-answer-btn.wrong { border-color: #e63946; background: rgba(230,57,70,0.2); }
+
+  /* Pattern challenge, required before talking to a house's grown-up the first time */
+  #challenge-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 38;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,13,20,0.82);
+    pointer-events: none;
+  }
+  #challenge-overlay.show { display: flex; pointer-events: auto; }
+  #challenge-card {
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.5);
+    border-radius: 18px;
+    padding: 22px;
+    width: 88%;
+    max-width: 340px;
+    text-align: center;
+    color: var(--panel-light);
+  }
+  #challenge-title { font-weight: 800; font-size: 17px; color: var(--accent); margin-bottom: 4px; }
+  #challenge-sub { font-size: 12px; opacity: 0.8; margin-bottom: 16px; }
+  #challenge-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .challenge-btn {
+    font-size: 36px;
+    aspect-ratio: 1;
+    border-radius: 16px;
+    border: 3px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: transform 0.1s ease, filter 0.1s ease;
+  }
+  .challenge-btn[data-c="0"] { background: #e63946; }
+  .challenge-btn[data-c="1"] { background: #457b9d; }
+  .challenge-btn[data-c="2"] { background: #2ecc71; }
+  .challenge-btn[data-c="3"] { background: #f2a65a; }
+  .challenge-btn.lit { filter: brightness(1.6); transform: scale(1.06); border-color: #fff; }
+  #challenge-status { font-size: 13px; font-weight: 700; min-height: 18px; margin-bottom: 12px; }
+  #challenge-watch {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--panel-light);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 9px 16px;
+    border-radius: 18px;
+    cursor: pointer;
+  }
+
+  /* Decorate palette (inside, when decorating) */
+  #decorate-bar {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    z-index: 37;
+    display: none;
+    background: rgba(20,24,32,0.94);
+    border-top: 3px solid var(--accent);
+    padding: 12px 14px 16px;
+  }
+  #decorate-bar.show { display: block; pointer-events: auto; }
+  #decorate-title {
+    color: var(--panel-light);
+    font-weight: 800;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  #decorate-title span { color: var(--accent); }
+  #decorate-categories {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    margin-bottom: 8px;
+    padding-bottom: 2px;
+  }
+  .dec-cat-btn {
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--panel-light);
+    background: rgba(255,255,255,0.06);
+    border: 2px solid transparent;
+    border-radius: 14px;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .dec-cat-btn.selected { border-color: var(--accent); background: rgba(242,166,90,0.18); color: var(--accent); }
+  #decorate-items {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .dec-item-btn {
+    flex: 0 0 auto;
+    font-size: 26px;
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid transparent;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .dec-item-btn.selected { border-color: var(--accent); background: rgba(242,166,90,0.15); }
+  #decorate-done {
+    margin-top: 10px;
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 10px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+
+  /* Customize overlay */
+  #customize {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(16,20,28,0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  #customize.show { display: flex; }
+  #customize-card {
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.4);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 380px;
+    color: var(--panel-light);
+  }
+  #customize-card h3 { margin: 0 0 4px; color: var(--accent); font-size: 18px; }
+  #customize-card p { margin: 0 0 14px; font-size: 12px; opacity: 0.75; }
+  .cz-section { margin-bottom: 16px; }
+  .cz-label { font-size: 12px; font-weight: 700; opacity: 0.8; margin-bottom: 8px; }
+  .cz-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cz-avatar-btn {
+    font-size: 26px;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid transparent;
+    border-radius: 12px;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .cz-avatar-btn.selected { border-color: var(--accent); background: rgba(242,166,90,0.15); }
+  .cz-color-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    cursor: pointer;
+  }
+  .cz-color-btn.selected { border-color: #fff; }
+  #customize-done {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 22px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  #names {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(16,20,28,0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  #names.show { display: flex; }
+  #names-card {
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.4);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 380px;
+    color: var(--panel-light);
+  }
+  #names-card h3 { margin: 0 0 4px; color: var(--accent); font-size: 18px; }
+  #names-card p { margin: 0 0 14px; font-size: 12px; opacity: 0.75; }
+  .name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .name-row-icon { font-size: 18px; flex: 0 0 auto; }
+  .name-row input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    color: var(--panel-light);
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+  .name-house-block {
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .name-house-block .name-row:last-child { margin-bottom: 0; }
+  #names-done {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 22px;
+    cursor: pointer;
+    margin-top: 6px;
+  }
+
+  #onboarding {
+    position: absolute;
+    inset: 0;
+    z-index: 70;
+    background: linear-gradient(180deg, #1b2233 0%, #10141c 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  #onboarding.hide { display: none; }
+  #onboarding-scroll {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 40px 20px 30px;
+  }
+  #onboarding-list {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 46px;
+    max-width: 380px;
+    margin: 0 auto;
+  }
+  .ob-item {
+    text-align: center;
+    color: var(--panel-light);
+  }
+  .ob-item-icon { font-size: 46px; margin-bottom: 10px; }
+  .ob-item-title { color: var(--accent); font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+  .ob-item-text { font-size: 14px; line-height: 1.6; opacity: 0.9; }
+  .ob-arrow-down {
+    font-size: 22px;
+    color: rgba(242,166,90,0.5);
+    text-align: center;
+  }
+  .ob-game-title {
+    text-align: center;
+    color: var(--panel-light);
+  }
+  .ob-game-title .big { font-size: 40px; margin-bottom: 6px; }
+  .ob-game-title h2 { margin: 0; color: var(--accent); font-size: 24px; }
+  .ob-game-title p { margin: 6px 0 0; font-size: 13px; opacity: 0.7; }
+  #onboarding-start {
+    flex: 0 0 auto;
+    margin: 0 16px 18px;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 16px;
+    padding: 16px;
+    border-radius: 26px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  }
+
+  #house-tip {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    background: rgba(16,20,28,0.92);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  #house-tip.show { display: flex; }
+  #house-tip-card {
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.5);
+    border-radius: 18px;
+    padding: 22px;
+    width: 100%;
+    max-width: 360px;
+    color: var(--panel-light);
+    text-align: center;
+  }
+  #house-tip-icon { font-size: 44px; margin-bottom: 6px; }
+  #house-tip-card h3 { margin: 0 0 14px; color: var(--accent); font-size: 18px; }
+  #house-tip-list { list-style: none; padding: 0; margin: 0 0 18px; text-align: left; }
+  #house-tip-list li { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+  #house-tip-done {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 15px;
+    padding: 12px;
+    border-radius: 22px;
+    cursor: pointer;
+  }
+
+  #level-complete {
+    position: absolute;
+    inset: 0;
+    z-index: 65;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16,20,28,0.9);
+    overflow: hidden;
+  }
+  #level-complete.show { display: flex; }
+  #confetti-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -20px;
+    width: 9px;
+    height: 14px;
+    opacity: 0.9;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall {
+    to { transform: translateY(115vh) rotate(540deg); }
+  }
+  #level-complete-card {
+    position: relative;
+    z-index: 2;
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.5);
+    border-radius: 20px;
+    padding: 30px 26px;
+    text-align: center;
+    color: var(--panel-light);
+    max-width: 340px;
+  }
+  #level-complete-emoji { font-size: 56px; margin-bottom: 6px; }
+  #level-complete-card h2 { margin: 0 0 6px; color: var(--accent); font-size: 22px; }
+  #level-complete-sub { margin: 0 0 16px; font-size: 14px; opacity: 0.85; }
+  #level-complete-progress {
+    font-size: 28px;
+    font-weight: 900;
+    color: #2ecc71;
+    margin-bottom: 20px;
+  }
+  #level-name-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.8;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+  #level-name-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    color: var(--panel-light);
+    font-size: 14px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+  }
+  #level-complete-continue {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 15px;
+    padding: 13px;
+    border-radius: 24px;
+    cursor: pointer;
+  }
+
+  /* ---- Birthday card signing prompt ---- */
+  #sign-card {
+    position: absolute;
+    inset: 0;
+    z-index: 55;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16,20,28,0.85);
+    padding: 20px;
+  }
+  #sign-card.show { display: flex; }
+  #sign-card-inner {
+    background: var(--panel);
+    border: 1px solid rgba(242,166,90,0.5);
+    border-radius: 18px;
+    padding: 22px;
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+    color: var(--panel-light);
+  }
+  .sc-icon { font-size: 40px; margin-bottom: 4px; }
+  #sign-card-inner h3 { margin: 0 0 8px; color: var(--accent); font-size: 16px; }
+  #sign-card-name { margin: 0 0 16px; font-size: 14px; opacity: 0.9; }
+  .sc-actions { display: flex; gap: 8px; }
+  .sc-actions button {
+    flex: 1;
+    border: none;
+    font-weight: 800;
+    font-size: 13px;
+    padding: 11px;
+    border-radius: 18px;
+    cursor: pointer;
+  }
+  #sign-card-yes { background: var(--accent); color: #1f2937; }
+  #sign-card-skip { background: rgba(255,255,255,0.1); color: var(--panel-light); }
+
+  /* ---- Birthday card viewer panel ---- */
+  #card-panel {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    background: rgba(16,20,28,0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  #card-panel.show { display: flex; }
+  #card-panel-inner {
+    background: linear-gradient(180deg, #fdf6e3 0%, #f6ecc9 100%);
+    border-radius: 16px;
+    padding: 22px;
+    width: 100%;
+    max-width: 340px;
+    color: #3a2e1a;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  #card-panel-inner h3 { margin: 0 0 4px; font-size: 19px; }
+  #card-panel-inner p { margin: 0 0 14px; font-size: 12px; opacity: 0.75; }
+  #card-signatures-list {
+    min-height: 60px;
+    max-height: 260px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+  }
+  .card-sig-line {
+    font-family: 'Brush Script MT', cursive;
+    font-size: 30px;
+    font-weight: 700;
+    color: #2a1f10;
+    padding: 8px 0;
+    border-bottom: 1px dashed rgba(58,46,26,0.3);
+  }
+  .card-sig-empty { font-size: 13px; opacity: 0.6; font-style: italic; }
+  #card-panel-done {
+    width: 100%;
+    background: #3a2e1a;
+    border: none;
+    color: #fdf6e3;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 20px;
+    cursor: pointer;
+  }
+
+  /* ---- Grand finale party screen ---- */
+  #party-screen {
+    position: absolute;
+    inset: 0;
+    z-index: 80;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #3a2e70 0%, #10141c 75%);
+    overflow: hidden;
+    padding: 20px;
+  }
+  #party-screen.show { display: flex; }
+  #party-confetti-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #party-card {
+    position: relative;
+    z-index: 2;
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    border-radius: 22px;
+    padding: 30px 24px;
+    text-align: center;
+    color: var(--panel-light);
+    max-width: 360px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+  #party-illustration { width: 100%; max-width: 300px; height: auto; margin-bottom: 4px; }
+  #party-title { margin: 0 0 8px; color: var(--accent); font-size: 26px; letter-spacing: 0.5px; }
+  #party-level-done { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #2ecc71; }
+  #party-sub { margin: 0 0 14px; font-size: 14px; opacity: 0.9; }
+  #party-letter {
+    background: linear-gradient(180deg, #fdf6e3 0%, #f6ecc9 100%);
+    border-radius: 6px;
+    padding: 16px 14px;
+    margin-bottom: 16px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(58,46,26,0.15);
+    position: relative;
+  }
+  #party-letter::before {
+    content: '💌';
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+  }
+  #party-letter-greeting {
+    font-family: 'Brush Script MT', cursive;
+    font-size: 30px;
+    font-weight: 700;
+    color: #2a1f10;
+    margin: 8px 0 12px;
+    text-align: center;
+  }
+  #party-signatures {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  #party-level-name-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0.8;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+  #party-level-name-input {
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    color: var(--panel-light);
+    font-size: 14px;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+    box-sizing: border-box;
+  }
+  #party-thanks { margin: 0 0 18px; font-size: 13px; opacity: 0.75; }
+  #party-again {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #1f2937;
+    font-weight: 800;
+    font-size: 15px;
+    padding: 13px;
+    border-radius: 24px;
+    cursor: pointer;
+  }
+
+  #decor-toolbar {
+    position: fixed;
+    z-index: 60;
+    display: none;
+    gap: 6px;
+    background: rgba(20,24,32,0.95);
+    border: 1px solid rgba(242,166,90,0.5);
+    border-radius: 18px;
+    padding: 6px;
+    transform: translate(-50%, -120%);
+    pointer-events: none;
+  }
+  #decor-toolbar.show { display: flex; pointer-events: auto; }
+  #decor-toolbar button {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    border: none;
+    background: rgba(255,255,255,0.08);
+    color: var(--panel-light);
+    font-size: 15px;
+    cursor: pointer;
+  }
+  #decor-toolbar button:active { background: var(--accent); color: #1f2937; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="onboarding">
+    <div id="onboarding-scroll">
+      <div id="onboarding-list"></div>
+    </div>
+    <button id="onboarding-start">▼ Start Game ▶</button>
+  </div>
+  <div id="house-tip">
+    <div id="house-tip-card">
+      <div id="house-tip-icon">🏠</div>
+      <h3>Inside a House</h3>
+      <ul id="house-tip-list">
+        <li>👤 Walk up to the grown-up and tap to talk — but first you'll play a quick pattern game!</li>
+        <li>🧒 Walk up to the kid and tap to talk — they'll ask you a quick math question.</li>
+        <li>✍️ After you talk to someone, you'll be asked their name so you can write it down on the birthday card!</li>
+        <li>🛋️ Tap "Decorate" up top to add furniture and items to the room.</li>
+        <li>🚪 Walk onto the door mat to leave when you're ready.</li>
+      </ul>
+      <button id="house-tip-done">Got it! ▶</button>
+    </div>
+  </div>
+  <div id="level-complete">
+    <div id="confetti-layer"></div>
+    <div id="level-complete-card">
+      <div id="level-complete-emoji">🎉</div>
+      <h2>Great job! You did it!</h2>
+      <p id="level-complete-sub">Level 1 complete!</p>
+      <div id="level-complete-progress">0 / 3</div>
+      <label id="level-name-label" for="level-name-input">Give this level a name!</label>
+      <input id="level-name-input" type="text" maxlength="30" placeholder="Level 1">
+      <button id="level-complete-continue">Continue ▶</button>
+    </div>
+  </div>
+  <div id="sign-card">
+    <div id="sign-card-inner">
+      <div class="sc-icon">✍️</div>
+      <h3>Sign the Birthday Card?</h3>
+      <p id="sign-card-name">Add their name to the card?</p>
+      <div class="sc-actions">
+        <button id="sign-card-yes">✍️ Sign It!</button>
+        <button id="sign-card-skip">Skip</button>
+      </div>
+    </div>
+  </div>
+  <div id="card-panel">
+    <div id="card-panel-inner">
+      <h3>🎂 Birthday Card</h3>
+      <p>Everyone who's signed so far:</p>
+      <div id="card-signatures-list"></div>
+      <button id="card-panel-done">Close</button>
+    </div>
+  </div>
+  <div id="party-screen">
+    <div id="party-confetti-layer"></div>
+    <div id="party-card">
+      <svg id="party-illustration" viewBox="0 0 300 130" xmlns="http://www.w3.org/2000/svg">
+        <!-- confetti -->
+        <circle cx="20" cy="18" r="3" fill="#f2a65a"/>
+        <circle cx="45" cy="8" r="2.5" fill="#e63946"/>
+        <circle cx="270" cy="14" r="3" fill="#457b9d"/>
+        <circle cx="255" cy="30" r="2.5" fill="#2ecc71"/>
+        <rect x="12" y="30" width="5" height="5" fill="#f7d716" transform="rotate(20 14 32)"/>
+        <rect x="280" y="42" width="5" height="5" fill="#a78bfa" transform="rotate(-15 282 44)"/>
+        <circle cx="150" cy="10" r="2.5" fill="#f2a65a"/>
+        <!-- balloons -->
+        <line x1="35" y1="45" x2="30" y2="80" stroke="#8a94a6" stroke-width="1.5"/>
+        <ellipse cx="35" cy="35" rx="14" ry="18" fill="#e63946"/>
+        <line x1="265" y1="50" x2="270" y2="82" stroke="#8a94a6" stroke-width="1.5"/>
+        <ellipse cx="265" cy="38" rx="13" ry="17" fill="#457b9d"/>
+        <line x1="248" y1="40" x2="244" y2="70" stroke="#8a94a6" stroke-width="1.5"/>
+        <ellipse cx="248" cy="28" rx="11" ry="15" fill="#2ecc71"/>
+        <!-- table -->
+        <rect x="90" y="100" width="120" height="8" rx="2" fill="#8a5638"/>
+        <!-- cake -->
+        <rect x="130" y="82" width="40" height="18" rx="2" fill="#f4a6b7"/>
+        <rect x="130" y="82" width="40" height="6" rx="2" fill="#fff0f4"/>
+        <rect x="147" y="70" width="3" height="12" fill="#f2e9dc"/>
+        <ellipse cx="148.5" cy="68" rx="2.5" ry="4" fill="#f2a65a"/>
+        <rect x="137" y="72" width="3" height="10" fill="#f2e9dc"/>
+        <ellipse cx="138.5" cy="70" rx="2" ry="3.5" fill="#f2a65a"/>
+        <rect x="158" y="72" width="3" height="10" fill="#f2e9dc"/>
+        <ellipse cx="159.5" cy="70" rx="2" ry="3.5" fill="#f2a65a"/>
+        <!-- three little party people -->
+        <g>
+          <line x1="70" y1="95" x2="58" y2="80" stroke="#e07a5f" stroke-width="3" stroke-linecap="round"/>
+          <line x1="70" y1="95" x2="82" y2="80" stroke="#e07a5f" stroke-width="3" stroke-linecap="round"/>
+          <rect x="62" y="90" width="16" height="20" rx="6" fill="#e07a5f"/>
+          <circle cx="70" cy="82" r="10" fill="#f2c9a0"/>
+          <polygon points="70,64 63,80 77,80" fill="#a78bfa"/>
+          <circle cx="70" cy="64" r="2" fill="#f7d716"/>
+        </g>
+        <g>
+          <line x1="150" y1="98" x2="138" y2="84" stroke="#81b29a" stroke-width="3" stroke-linecap="round"/>
+          <line x1="150" y1="98" x2="162" y2="84" stroke="#81b29a" stroke-width="3" stroke-linecap="round"/>
+          <rect x="141" y="93" width="18" height="22" rx="7" fill="#81b29a"/>
+          <circle cx="150" cy="84" r="11" fill="#f2c9a0"/>
+          <polygon points="150,64 142,82 158,82" fill="#f2a65a"/>
+          <circle cx="150" cy="64" r="2.2" fill="#e63946"/>
+        </g>
+        <g>
+          <line x1="230" y1="95" x2="218" y2="80" stroke="#6ea8d8" stroke-width="3" stroke-linecap="round"/>
+          <line x1="230" y1="95" x2="242" y2="80" stroke="#6ea8d8" stroke-width="3" stroke-linecap="round"/>
+          <rect x="222" y="90" width="16" height="20" rx="6" fill="#6ea8d8"/>
+          <circle cx="230" cy="82" r="10" fill="#f2c9a0"/>
+          <polygon points="230,64 223,80 237,80" fill="#2ecc71"/>
+          <circle cx="230" cy="64" r="2" fill="#fff"/>
+        </g>
+      </svg>
+      <h2 id="party-title">SURPRISE PARTY!</h2>
+      <p id="party-level-done"></p>
+      <p id="party-sub">Everyone signed this card just for you, Slate!</p>
+      <div id="party-letter">
+        <p id="party-letter-greeting">Happy Birthday, Slate!</p>
+        <div id="party-signatures"></div>
+      </div>
+      <label id="party-level-name-label" for="party-level-name-input">Give this last level a name!</label>
+      <input id="party-level-name-input" type="text" maxlength="30" placeholder="Level 3">
+      <p id="party-thanks">The End — thanks for playing!</p>
+      <button id="party-again">🔁 Play Again</button>
+    </div>
+  </div>
+  <div id="hud">
+    <div id="hud-left">
+      <div id="title">🏘️ Neighborhood Drive</div>
+      <button id="customize-btn">🎨 Customize</button>
+      <button id="names-btn">🏷️ Names</button>
+      <button id="card-btn">🎂 Card</button>
+    </div>
+    <div id="hud-right">
+      <div id="progress">Visited 0 / 6</div>
+      <div id="level-badge"></div>
+    </div>
+  </div>
+  <div id="toast"></div>
+  <canvas id="game"></canvas>
+  <canvas id="minimap"></canvas>
+
+  <div id="enter-prompt">🚪 Tap to go inside</div>
+
+  <div id="controls">
+    <div id="joystick-zone"><div id="joystick-nub"></div></div>
+    <div id="speed-btns">
+      <button id="boost-btn">⚡<span>Boost</span></button>
+      <button id="slow-btn">🐢<span>Slow</span></button>
+    </div>
+  </div>
+  <div id="hint">Drag the stick to move, or use WASD / arrow keys. Hold Boost/Shift to speed up, Slow/Ctrl to slow down.</div>
+
+  <div id="win">
+    <h2>🎉 You met everyone!</h2>
+    <p>You visited every house in the neighborhood and said hello.</p>
+    <button id="restart-btn">Drive Again</button>
+  </div>
+
+  <div id="interior">
+    <div id="house-label"></div>
+    <button id="leave-btn">✕ Leave</button>
+    <button id="decorate-btn">🛋️ Decorate</button>
+    <canvas id="room-canvas"></canvas>
+    <div id="talk-prompt">💬 Tap to talk</div>
+    <div id="talk-prompt2">💬 Tap to talk</div>
+    <div id="dialogue-box">
+      <div id="npc-name">???</div>
+      <div id="npc-line">...</div>
+      <div id="quiz-answers"></div>
+      <div id="dialogue-actions">
+        <button id="dialogue-next">Next ▸</button>
+      </div>
+    </div>
+    <div id="challenge-overlay">
+      <div id="challenge-card">
+        <div id="challenge-title">Watch the pattern!</div>
+        <div id="challenge-sub">Then tap it back in the same order.</div>
+        <div id="challenge-grid"></div>
+        <div id="challenge-status">Get ready...</div>
+        <button id="challenge-watch">🔁 Watch Again</button>
+      </div>
+    </div>
+    <div id="decorate-bar">
+      <div id="decorate-title">Tap an item below, then tap the room to place it. Tap ANY item already in the room to rotate or remove it. <span>🛋️</span></div>
+      <div id="decorate-categories"></div>
+      <div id="decorate-items"></div>
+      <button id="decorate-done">✅ Done Decorating</button>
+    </div>
+    <div id="decor-toolbar">
+      <button id="decor-rotate-left">↺</button>
+      <button id="decor-rotate-right">↻</button>
+      <button id="decor-sideways">↔️</button>
+      <button id="decor-flip">🪞</button>
+      <button id="decor-delete">🗑️</button>
+      <button id="decor-close">✕</button>
+    </div>
+  </div>
+
+  <div id="customize">
+    <div id="customize-card">
+      <h3>Make your character</h3>
+      <p>Pick how you and your buddy look, then hop back in!</p>
+      <div class="cz-section">
+        <div class="cz-label">Your character</div>
+        <div class="cz-row" id="cz-avatars"></div>
+      </div>
+      <div class="cz-section">
+        <div class="cz-label">Your buddy (follows you everywhere!)</div>
+        <div class="cz-row" id="cz-buddies"></div>
+      </div>
+      <div class="cz-section">
+        <div class="cz-label">Car color</div>
+        <div class="cz-row" id="cz-colors"></div>
+      </div>
+      <button id="customize-done">Done ✓</button>
+    </div>
+  </div>
+
+  <div id="names">
+    <div id="names-card">
+      <h3>Name your neighborhood</h3>
+      <p>Give the roads and houses their own names!</p>
+      <div class="cz-section">
+        <div class="cz-label">🏁 Levels</div>
+        <div id="names-levels"></div>
+      </div>
+      <div class="cz-section">
+        <div class="cz-label">🛣️ Roads</div>
+        <div id="names-roads"></div>
+      </div>
+      <div class="cz-section">
+        <div class="cz-label">🏠 Houses</div>
+        <div id="names-houses"></div>
+      </div>
+      <button id="names-done">Done ✓</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const minimapCanvas = document.getElementById('minimap');
+  const mctx = minimapCanvas.getContext('2d');
+  const progressEl = document.getElementById('progress');
+  const levelBadgeEl = document.getElementById('level-badge');
+  const toastEl = document.getElementById('toast');
+  const winEl = document.getElementById('win');
+  const restartBtn = document.getElementById('restart-btn');
+  const enterPrompt = document.getElementById('enter-prompt');
+
+  const interiorEl = document.getElementById('interior');
+  const houseLabelEl = document.getElementById('house-label');
+  const leaveBtn = document.getElementById('leave-btn');
+  const decorateBtn = document.getElementById('decorate-btn');
+  const roomCanvas = document.getElementById('room-canvas');
+  const rctx = roomCanvas.getContext('2d');
+  const talkPrompt = document.getElementById('talk-prompt');
+  const talkPrompt2 = document.getElementById('talk-prompt2');
+  const dialogueBox = document.getElementById('dialogue-box');
+  const npcNameEl = document.getElementById('npc-name');
+  const npcLineEl = document.getElementById('npc-line');
+  const nextBtn = document.getElementById('dialogue-next');
+  const quizAnswersEl = document.getElementById('quiz-answers');
+
+  const challengeOverlay = document.getElementById('challenge-overlay');
+  const challengeGridEl = document.getElementById('challenge-grid');
+  const challengeStatusEl = document.getElementById('challenge-status');
+  const challengeWatchBtn = document.getElementById('challenge-watch');
+
+  const decorateBar = document.getElementById('decorate-bar');
+  const decorateCategoriesEl = document.getElementById('decorate-categories');
+  const decorateItemsEl = document.getElementById('decorate-items');
+  const decorateDoneBtn = document.getElementById('decorate-done');
+  const decorToolbar = document.getElementById('decor-toolbar');
+  const decorRotateLeftBtn = document.getElementById('decor-rotate-left');
+  const decorRotateRightBtn = document.getElementById('decor-rotate-right');
+  const decorSidewaysBtn = document.getElementById('decor-sideways');
+  const decorFlipBtn = document.getElementById('decor-flip');
+  const decorDeleteBtn = document.getElementById('decor-delete');
+  const decorCloseBtn = document.getElementById('decor-close');
+
+  const customizeEl = document.getElementById('customize');
+  const customizeBtn = document.getElementById('customize-btn');
+  const customizeDone = document.getElementById('customize-done');
+  const czAvatarsEl = document.getElementById('cz-avatars');
+  const czBuddiesEl = document.getElementById('cz-buddies');
+  const czColorsEl = document.getElementById('cz-colors');
+
+  const namesEl = document.getElementById('names');
+  const namesBtn = document.getElementById('names-btn');
+  const namesDone = document.getElementById('names-done');
+  const namesLevelsEl = document.getElementById('names-levels');
+  const namesRoadsEl = document.getElementById('names-roads');
+
+  const onboardingEl = document.getElementById('onboarding');
+  const onboardingListEl = document.getElementById('onboarding-list');
+  const onboardingStart = document.getElementById('onboarding-start');
+
+  const houseTipEl = document.getElementById('house-tip');
+  const houseTipDone = document.getElementById('house-tip-done');
+  let hasSeenHouseTip = false;
+
+  const levelCompleteEl = document.getElementById('level-complete');
+  const levelCompleteSubEl = document.getElementById('level-complete-sub');
+  const levelCompleteProgressEl = document.getElementById('level-complete-progress');
+  const levelCompleteContinueBtn = document.getElementById('level-complete-continue');
+  const levelNameInput = document.getElementById('level-name-input');
+  const confettiLayerEl = document.getElementById('confetti-layer');
+  let levelCompleteActive = false;
+  let levelBeingNamed = null;
+
+  const signCardEl = document.getElementById('sign-card');
+  const signCardNameEl = document.getElementById('sign-card-name');
+  const signCardYesBtn = document.getElementById('sign-card-yes');
+  const signCardSkipBtn = document.getElementById('sign-card-skip');
+
+  const cardBtn = document.getElementById('card-btn');
+  const cardPanelEl = document.getElementById('card-panel');
+  const cardSignaturesListEl = document.getElementById('card-signatures-list');
+  const cardPanelDoneBtn = document.getElementById('card-panel-done');
+
+  const partyScreenEl = document.getElementById('party-screen');
+  const partyConfettiLayerEl = document.getElementById('party-confetti-layer');
+  const partyTitleEl = document.getElementById('party-title');
+  const partySubEl = document.getElementById('party-sub');
+  const partyLetterGreetingEl = document.getElementById('party-letter-greeting');
+  const partyLevelDoneEl = document.getElementById('party-level-done');
+  const partySignaturesEl = document.getElementById('party-signatures');
+  const partyLevelNameInput = document.getElementById('party-level-name-input');
+  partyLevelNameInput.addEventListener('input', () => {
+    const lvl = levels[currentLevel - 1];
+    if (lvl) {
+      lvl.name = partyLevelNameInput.value.trim() || `Level ${lvl.number}`;
+      updateLevelBadge();
+      partyLevelDoneEl.textContent = `Good job! You finished Level ${lvl.name}!`;
+    }
+  });
+  const partyAgainBtn = document.getElementById('party-again');
+  let partyActive = false;
+
+  const cardSignatures = [];
+
+  function buildCardList(container) {
+    container.innerHTML = '';
+    if (cardSignatures.length === 0) {
+      const p = document.createElement('div');
+      p.className = 'card-sig-empty';
+      p.textContent = 'No signatures yet — go talk to your neighbors!';
+      container.appendChild(p);
+      return;
+    }
+    cardSignatures.forEach(name => {
+      const line = document.createElement('div');
+      line.className = 'card-sig-line';
+      line.textContent = name;
+      container.appendChild(line);
+    });
+  }
+
+  function showSignCardPrompt(person, onDone) {
+    if (person._signed) { onDone(); return; }
+    signCardNameEl.textContent = `Add ${person.name} to the card?`;
+    signCardEl.classList.add('show');
+    talking = true;
+    const finish = (didSign) => {
+      signCardEl.classList.remove('show');
+      if (didSign) {
+        person._signed = true;
+        cardSignatures.push(person.name);
+        showToast(`✍️ ${person.name} signed the card!`);
+      }
+      talking = false;
+      onDone();
+    };
+    signCardYesBtn.onclick = () => finish(true);
+    signCardSkipBtn.onclick = () => finish(false);
+  }
+
+  cardBtn.addEventListener('click', () => {
+    buildCardList(cardSignaturesListEl);
+    cardPanelEl.classList.add('show');
+  });
+  cardPanelDoneBtn.addEventListener('click', () => cardPanelEl.classList.remove('show'));
+
+  function triggerSurpriseParty() {
+    dialogueBox.classList.remove('show');
+    talking = false;
+    talkTarget = null;
+
+    if (activeHouse && !activeHouse.visited) {
+      activeHouse.visited = true;
+      visitedCount++;
+      updateProgressDisplay();
+    }
+
+    const birthdayName = activeHouse ? activeHouse.def.npc.name : 'you';
+    partyTitleEl.textContent = `SURPRISE PARTY for ${birthdayName}!`;
+    partySubEl.textContent = `Everyone signed this card just for you, ${birthdayName}!`;
+    partyLetterGreetingEl.textContent = `Happy Birthday, ${birthdayName}!`;
+    buildCardList(partySignaturesEl);
+    spawnConfetti(partyConfettiLayerEl, 100);
+
+    const finalLevel = levels[currentLevel - 1];
+    if (finalLevel) {
+      partyLevelDoneEl.textContent = `Good job! You finished Level ${finalLevel.name}!`;
+      partyLevelNameInput.value = finalLevel.name;
+      partyLevelNameInput.placeholder = finalLevel.name;
+    }
+
+    interiorEl.classList.remove('show');
+    partyActive = true;
+    partyScreenEl.classList.add('show');
+  }
+  partyAgainBtn.addEventListener('click', () => {
+    window.location.reload();
+  });
+
+  houseTipDone.addEventListener('click', () => {
+    houseTipEl.classList.remove('show');
+    talking = false;
+  });
+
+  const CONFETTI_COLORS = ['#f2a65a', '#e63946', '#457b9d', '#2ecc71', '#f7d716', '#a78bfa'];
+  function spawnConfetti(layerEl, count) {
+    const target = layerEl || confettiLayerEl;
+    target.innerHTML = '';
+    for (let i = 0; i < (count || 60); i++) {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.animationDuration = (1.8 + Math.random() * 1.6) + 's';
+      piece.style.animationDelay = (Math.random() * 0.5) + 's';
+      target.appendChild(piece);
+    }
+  }
+
+  function removeHousesFromActive(houseList) {
+    houseList.forEach(h => {
+      const idx = houses.indexOf(h);
+      if (idx !== -1) houses.splice(idx, 1);
+      if (nearHouse === h) nearHouse = null;
+      if (activeHouse === h) activeHouse = null;
+    });
+  }
+
+  function celebrateLevelComplete() {
+    const finishedLevel = levels[currentLevel - 1];
+    const newLevel = unlockNextLevel();
+    removeHousesFromActive(finishedLevel.houses);
+
+    exitHouse();
+    car.x = ORIGINAL_W / 2;
+    car.y = ORIGINAL_H / 2 + 300;
+    car.angle = -Math.PI / 2;
+    car.speed = 0;
+
+    levelCompleteSubEl.textContent = `Good job! You finished Level ${finishedLevel.name}!`;
+    levelCompleteProgressEl.textContent = `0 / ${newLevel.houseCount}`;
+    levelBeingNamed = finishedLevel;
+    levelNameInput.value = finishedLevel.name;
+    levelNameInput.placeholder = finishedLevel.name;
+    spawnConfetti();
+    levelCompleteActive = true;
+    levelCompleteEl.classList.add('show');
+  }
+  levelCompleteContinueBtn.addEventListener('click', () => {
+    if (levelBeingNamed) {
+      const typed = levelNameInput.value.trim();
+      levelBeingNamed.name = typed || levelBeingNamed.name;
+      levelBeingNamed = null;
+      updateLevelBadge();
+    }
+    levelCompleteEl.classList.remove('show');
+    confettiLayerEl.innerHTML = '';
+    levelCompleteActive = false;
+  });
+
+  const onboardingPages = [
+    { icon: '🚗', title: 'Drive Around', text: 'Use the joystick, or WASD / arrow keys, to drive your car around the neighborhood.' },
+    { icon: '⚡', title: 'Speed Up or Slow Down', text: 'Hold the ⚡ Boost button (or Shift) to go faster, or the 🐢 Slow button (or Ctrl) to go slower.' },
+    { icon: '🚪', title: 'Go Inside', text: 'Drive up to a house and a door prompt will pop up — tap it to go inside. Once you\'re in, more tips will show you what to do!' },
+  ];
+  let onboardingActive = true;
+
+  function buildOnboardingList() {
+    onboardingListEl.innerHTML = '';
+
+    const heading = document.createElement('div');
+    heading.className = 'ob-game-title';
+    heading.innerHTML = '<div class="big">🏘️</div><h2>Neighborhood Drive</h2><p>Scroll down to read how to play</p>';
+    onboardingListEl.appendChild(heading);
+
+    const arrow0 = document.createElement('div');
+    arrow0.className = 'ob-arrow-down';
+    arrow0.textContent = '▼';
+    onboardingListEl.appendChild(arrow0);
+
+    onboardingPages.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'ob-item';
+      item.innerHTML = `<div class="ob-item-icon">${p.icon}</div><div class="ob-item-title">${p.title}</div><div class="ob-item-text">${p.text}</div>`;
+      onboardingListEl.appendChild(item);
+
+      if (i < onboardingPages.length - 1) {
+        const arrow = document.createElement('div');
+        arrow.className = 'ob-arrow-down';
+        arrow.textContent = '▼';
+        onboardingListEl.appendChild(arrow);
+      }
+    });
+  }
+  buildOnboardingList();
+
+  function closeOnboarding() {
+    onboardingEl.classList.add('hide');
+    onboardingActive = false;
+  }
+  onboardingStart.addEventListener('click', closeOnboarding);
+  const namesHousesEl = document.getElementById('names-houses');
+
+  const ORIGINAL_W = 1600;
+  const ORIGINAL_H = 1600;
+  let WORLD_W = 2600; // extra space to the east reserved for the unlockable expansion
+  const WORLD_H = 1600;
+
+  function resize() {
+    const maxW = Math.min(window.innerWidth, 900);
+    const maxH = Math.min(window.innerHeight, 900);
+    const size = Math.min(maxW, maxH);
+    canvas.width = size;
+    canvas.height = size;
+    roomCanvas.width = size;
+    roomCanvas.height = size;
+    minimapCanvas.width = 108;
+    minimapCanvas.height = 108;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ---- Character customization ----
+  const avatarOptions = ['🧑', '👦', '👧', '🧒', '🧑\u200d🦱', '🧑\u200d🦰', '👨', '👩'];
+  const buddyOptions = ['🧒', '👦', '👧', '🐶', '🐱', '🐰', '🦊', 'none'];
+  const colorOptions = ['#e63946', '#457b9d', '#2ecc71', '#f2a65a', '#a78bfa', '#f7d716'];
+
+  const playerCustomization = {
+    avatar: avatarOptions[0],
+    buddy: buddyOptions[0],
+    carColor: colorOptions[0],
+  };
+
+  function buildCustomizeUI() {
+    czAvatarsEl.innerHTML = '';
+    avatarOptions.forEach(av => {
+      const btn = document.createElement('button');
+      btn.className = 'cz-avatar-btn' + (av === playerCustomization.avatar ? ' selected' : '');
+      btn.textContent = av;
+      btn.addEventListener('click', () => { playerCustomization.avatar = av; buildCustomizeUI(); });
+      czAvatarsEl.appendChild(btn);
+    });
+
+    czBuddiesEl.innerHTML = '';
+    buddyOptions.forEach(av => {
+      const btn = document.createElement('button');
+      btn.className = 'cz-avatar-btn' + (av === playerCustomization.buddy ? ' selected' : '');
+      btn.textContent = av === 'none' ? '🚫' : av;
+      btn.addEventListener('click', () => { playerCustomization.buddy = av; buildCustomizeUI(); });
+      czBuddiesEl.appendChild(btn);
+    });
+
+    czColorsEl.innerHTML = '';
+    colorOptions.forEach(c => {
+      const btn = document.createElement('button');
+      btn.className = 'cz-color-btn' + (c === playerCustomization.carColor ? ' selected' : '');
+      btn.style.background = c;
+      btn.addEventListener('click', () => { playerCustomization.carColor = c; buildCustomizeUI(); });
+      czColorsEl.appendChild(btn);
+    });
+  }
+  buildCustomizeUI();
+
+  customizeBtn.addEventListener('click', () => customizeEl.classList.add('show'));
+  customizeDone.addEventListener('click', () => customizeEl.classList.remove('show'));
+
+  namesBtn.addEventListener('click', () => {
+    buildNamesPanel();
+    namesEl.classList.add('show');
+  });
+  namesDone.addEventListener('click', () => namesEl.classList.remove('show'));
+
+  function buildNamesPanel() {
+    // Levels: one input per unlocked level
+    namesLevelsEl.innerHTML = '';
+    levels.forEach(lvl => {
+      const row = document.createElement('div');
+      row.className = 'name-row';
+      const icon = document.createElement('span');
+      icon.className = 'name-row-icon';
+      icon.textContent = '🏁';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = lvl.name;
+      input.maxLength = 30;
+      input.addEventListener('input', () => {
+        lvl.name = input.value || `Level ${lvl.number}`;
+        updateLevelBadge();
+      });
+      row.appendChild(icon);
+      row.appendChild(input);
+      namesLevelsEl.appendChild(row);
+    });
+
+    // Roads: group by current name so one input renames every segment sharing it
+    const roadGroups = [];
+    const seen = new Map();
+    roads.forEach(r => {
+      if (!seen.has(r.name)) {
+        seen.set(r.name, { name: r.name, segs: [] });
+        roadGroups.push(seen.get(r.name));
+      }
+      seen.get(r.name).segs.push(r);
+    });
+
+    namesRoadsEl.innerHTML = '';
+    roadGroups.forEach(g => {
+      const row = document.createElement('div');
+      row.className = 'name-row';
+      const icon = document.createElement('span');
+      icon.className = 'name-row-icon';
+      icon.textContent = '🛣️';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = g.name;
+      input.maxLength = 30;
+      input.addEventListener('input', () => {
+        g.segs.forEach(seg => { seg.name = input.value || 'Unnamed Road'; });
+      });
+      row.appendChild(icon);
+      row.appendChild(input);
+      namesRoadsEl.appendChild(row);
+    });
+
+    // Houses: house name + who lives there
+    namesHousesEl.innerHTML = '';
+    houses.forEach(h => {
+      const block = document.createElement('div');
+      block.className = 'name-house-block';
+
+      const houseRow = document.createElement('div');
+      houseRow.className = 'name-row';
+      const houseIcon = document.createElement('span');
+      houseIcon.className = 'name-row-icon';
+      houseIcon.textContent = '🏠';
+      const houseInput = document.createElement('input');
+      houseInput.type = 'text';
+      houseInput.value = h.def.name;
+      houseInput.maxLength = 30;
+      houseInput.addEventListener('input', () => {
+        h.def.name = houseInput.value || 'Unnamed House';
+      });
+      houseRow.appendChild(houseIcon);
+      houseRow.appendChild(houseInput);
+
+      const residentRow = document.createElement('div');
+      residentRow.className = 'name-row';
+      const residentIcon = document.createElement('span');
+      residentIcon.className = 'name-row-icon';
+      residentIcon.textContent = h.def.npc.avatar;
+      const residentInput = document.createElement('input');
+      residentInput.type = 'text';
+      residentInput.value = h.def.npc.name;
+      residentInput.maxLength = 20;
+      residentInput.addEventListener('input', () => {
+        h.def.npc.name = residentInput.value || 'Someone';
+      });
+      residentRow.appendChild(residentIcon);
+      residentRow.appendChild(residentInput);
+
+      block.appendChild(houseRow);
+      block.appendChild(residentRow);
+      namesHousesEl.appendChild(block);
+    });
+  }
+
+  // ---- Decorating ----
+  const decorCategories = [
+    { name: 'Furniture', items: ['🛋️', '🪑', '🛏️', '🗄️', '🪞', '📺', '🧺'] },
+    { name: 'Plants', items: ['🪴', '🌵', '🌻', '🌷', '🌸', '🍀', '🌳', '🌿'] },
+    { name: 'Wall Art', items: ['🖼️', '🎨', '📷', '🧵', '🗺️', '🪩'] },
+    { name: 'Lighting', items: ['🕯️', '💡', '🏮', '🪔', '✨'] },
+    { name: 'Toys & Fun', items: ['🎈', '🧸', '🪁', '🎀', '🎵', '⚽', '🎲', '🧩', '🪀', '🎮'] },
+    { name: 'Food', items: ['🍎', '🍰', '☕', '🍕', '🍪', '🧁', '🍉'] },
+    { name: 'Pets', items: ['🐶', '🐱', '🐦', '🐟', '🐹'] },
+    { name: 'Seasonal', items: ['🎄', '🎃', '🎁', '❄️', '🎉', '🌈'] },
+  ];
+  let decorateMode = false;
+  let decorateCategory = 0;
+  let decorateSelected = decorCategories[0].items[0];
+  let walkPointerId = null;
+  let walkTarget = null;
+  let selectedDecor = null;      // the item object currently selected
+  let selectedDecorArray = null; // which array it lives in (for delete)
+
+  function selectDecorItem(item, arr) {
+    if (item.rotation === undefined) item.rotation = 0;
+    if (item.flip === undefined) item.flip = false;
+    selectedDecor = item;
+    selectedDecorArray = arr;
+    decorToolbar.classList.add('show');
+  }
+  function deselectDecorItem() {
+    selectedDecor = null;
+    selectedDecorArray = null;
+    decorToolbar.classList.remove('show');
+  }
+  function positionDecorToolbar() {
+    if (!selectedDecor || !activeHouse) return;
+    const rect = roomCanvas.getBoundingClientRect();
+    const roomScale = roomCanvas.width / ROOM_W;
+    const scaleX = rect.width / roomCanvas.width;
+    const scaleY = rect.height / roomCanvas.height;
+    let screenX = rect.left + (selectedDecor.x * roomScale) * scaleX;
+    let screenY = rect.top + (selectedDecor.y * roomScale) * scaleY;
+    // keep the toolbar fully on-screen and reachable, even for items near an edge
+    const margin = 90;
+    screenX = Math.max(margin, Math.min(window.innerWidth - margin, screenX));
+    screenY = Math.max(70, Math.min(window.innerHeight - 20, screenY));
+    decorToolbar.style.left = screenX + 'px';
+    decorToolbar.style.top = screenY + 'px';
+  }
+  decorRotateLeftBtn.addEventListener('click', () => {
+    if (selectedDecor) { selectedDecor.rotation = (selectedDecor.rotation || 0) - 30; }
+  });
+  decorRotateRightBtn.addEventListener('click', () => {
+    if (selectedDecor) { selectedDecor.rotation = (selectedDecor.rotation || 0) + 30; }
+  });
+  decorSidewaysBtn.addEventListener('click', () => {
+    if (selectedDecor) { selectedDecor.rotation = (selectedDecor.rotation || 0) + 90; }
+  });
+  decorFlipBtn.addEventListener('click', () => {
+    if (selectedDecor) {
+      // reset to level first so flipping always gives a clean left-right mirror,
+      // never an upside-down look from leftover rotation
+      selectedDecor.rotation = 0;
+      selectedDecor.flip = !selectedDecor.flip;
+    }
+  });
+  decorDeleteBtn.addEventListener('click', () => {
+    if (selectedDecor && selectedDecorArray) {
+      const i = selectedDecorArray.indexOf(selectedDecor);
+      if (i !== -1) selectedDecorArray.splice(i, 1);
+    }
+    deselectDecorItem();
+  });
+  decorCloseBtn.addEventListener('click', deselectDecorItem);
+
+  function buildDecorateCategories() {
+    decorateCategoriesEl.innerHTML = '';
+    decorCategories.forEach((cat, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'dec-cat-btn' + (i === decorateCategory ? ' selected' : '');
+      btn.textContent = cat.name;
+      btn.addEventListener('click', () => {
+        decorateCategory = i;
+        decorateSelected = decorCategories[i].items[0];
+        buildDecorateCategories();
+        buildDecoratePalette();
+      });
+      decorateCategoriesEl.appendChild(btn);
+    });
+  }
+
+  function buildDecoratePalette() {
+    decorateItemsEl.innerHTML = '';
+    decorCategories[decorateCategory].items.forEach(e => {
+      const btn = document.createElement('button');
+      btn.className = 'dec-item-btn' + (e === decorateSelected ? ' selected' : '');
+      btn.textContent = e;
+      btn.addEventListener('click', () => { decorateSelected = e; buildDecoratePalette(); });
+      decorateItemsEl.appendChild(btn);
+    });
+  }
+  buildDecorateCategories();
+  buildDecoratePalette();
+
+  decorateBtn.addEventListener('click', () => {
+    decorateMode = true;
+    decorateBar.classList.add('show');
+    talkPrompt.classList.remove('show');
+    talkPrompt2.classList.remove('show');
+  });
+  decorateDoneBtn.addEventListener('click', () => {
+    decorateMode = false;
+    decorateBar.classList.remove('show');
+    deselectDecorItem();
+  });
+
+  function roomPointToCoords(e) {
+    const rect = roomCanvas.getBoundingClientRect();
+    const scaleX = roomCanvas.width / rect.width;
+    const scaleY = roomCanvas.height / rect.height;
+    const canvasX = (e.clientX - rect.left) * scaleX;
+    const canvasY = (e.clientY - rect.top) * scaleY;
+    const roomScale = roomCanvas.width / ROOM_W;
+    return { x: canvasX / roomScale, y: canvasY / roomScale };
+  }
+
+  roomCanvas.addEventListener('pointerdown', e => {
+    if (!activeHouse) return;
+
+    if (decorateMode) {
+      const { x: rx, y: ry } = roomPointToCoords(e);
+      const custom = activeHouse.def.customDecor;
+      for (let i = custom.length - 1; i >= 0; i--) {
+        const d = custom[i];
+        if (Math.hypot(rx - d.x, ry - d.y) < 28) {
+          selectDecorItem(d, custom);
+          return;
+        }
+      }
+      // also allow selecting the house's original built-in decorations
+      const base = activeHouse.def.decor;
+      for (let i = base.length - 1; i >= 0; i--) {
+        const d = base[i];
+        if (Math.hypot(rx - d.x, ry - d.y) < 28) {
+          selectDecorItem(d, base);
+          return;
+        }
+      }
+      // tapped empty space
+      if (selectedDecor) {
+        // a stray tap while something is selected just closes the toolbar —
+        // it does NOT place a new item, so a missed tap on delete can't add one
+        deselectDecorItem();
+        return;
+      }
+      custom.push({ emoji: decorateSelected, x: rx, y: ry, size: 40, rotation: 0, flip: false });
+      return;
+    }
+
+    // Not decorating: tap-and-drag to walk there directly (backup to the joystick)
+    if (talking) return;
+    walkPointerId = e.pointerId;
+    roomCanvas.setPointerCapture(e.pointerId);
+    updateWalkTarget(e);
+  });
+  roomCanvas.addEventListener('pointermove', e => {
+    if (walkPointerId === e.pointerId) updateWalkTarget(e);
+  });
+  roomCanvas.addEventListener('pointerup', e => {
+    if (walkPointerId === e.pointerId) { walkPointerId = null; walkTarget = null; }
+  });
+  roomCanvas.addEventListener('pointercancel', e => {
+    if (walkPointerId === e.pointerId) { walkPointerId = null; walkTarget = null; }
+  });
+  function updateWalkTarget(e) {
+    if (decorateMode) return;
+    walkTarget = roomPointToCoords(e);
+  }
+
+  // ---- Houses: each has its own decorated interior + resident + their kid ----
+  const housePositions = [
+    { x: 220, y: 220 },
+    { x: 1300, y: 260 },
+    { x: 260, y: 1300 },
+    { x: 1320, y: 1280 },
+    { x: 780, y: 200 },
+    { x: 780, y: 1350 },
+  ];
+
+  const ROOM_W = 900, ROOM_H = 900;
+
+  const houseDefs = [
+    {
+      name: 'Terracotta House',
+      body: '#e07a5f', roof: '#8c3d2b',
+      wallColor: '#c96f4a', floorColor: '#8a5638', rugColor: '#e8b96a',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Rosa', avatar: '🧑\u200d🌾', x: 190, y: 470,
+        lines: [
+          "Oh, hello there! I didn't hear your car pull up.",
+          "Welcome to my little terracotta cottage — I grow chili peppers on that windowsill.",
+          "Careful, the basket by the door is full of fresh tomatoes. Take one if you like!",
+          "Thanks for stopping by. Drive safe out there!"
+        ] },
+      kid: { name: 'Theo', avatar: '🧒', x: 710, y: 500,
+        lines: [
+          "Hi! I'm Rosa's kid, Theo. Wanna see my bug collection?",
+          "I found a roly-poly this morning and named him Steve.",
+          "Come play again soon, okay?"
+        ] }
+    },
+    {
+      name: 'Sage House',
+      body: '#81b29a', roof: '#3d6b56',
+      wallColor: '#6ba184', floorColor: '#3d6b56', rugColor: '#c7e0c9',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Fern', avatar: '🧑\u200d🔬', x: 190, y: 470,
+        lines: [
+          "You found my greenhouse-house! I've got over forty plants in here.",
+          "This one's a moonflower — it only blooms at night. Come back after dark sometime.",
+          "I study botany at the university. Plants are basically my roommates.",
+          "Come back and visit my garden again soon!"
+        ] },
+      kid: { name: 'Mabel', avatar: '👧', x: 710, y: 500,
+        lines: [
+          "Hey! I'm Mabel, Fern's daughter. I'm building a puzzle of the solar system.",
+          "Mom lets me water the moonflower every night. It's my favorite job.",
+          "See you around the garden!"
+        ] }
+    },
+    {
+      name: 'Sandy House',
+      body: '#f2cc8f', roof: '#b5842e',
+      wallColor: '#e0b876', floorColor: '#c9a15a', rugColor: '#fff3d6',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Skip', avatar: '🧑\u200d✈️', x: 190, y: 470,
+        lines: [
+          "Ahoy! Come on in out of the sun.",
+          "Thirty years at sea, and now I collect shells instead of storms.",
+          "That anchor on the wall came off my very first boat.",
+          "Fair winds to you, traveler. Come back anytime!"
+        ] },
+      kid: { name: 'Finn', avatar: '👦', x: 710, y: 500,
+        lines: [
+          "I'm Finn, Skip's grandson! I want to be a sailor too someday.",
+          "Grandpa's teaching me how to tie a proper knot.",
+          "Catch you later, matey!"
+        ] }
+    },
+    {
+      name: 'Violet House',
+      body: '#a78bfa', roof: '#5b3fa0',
+      wallColor: '#8f6fe0', floorColor: '#4b3380', rugColor: '#e4d9ff',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Luna', avatar: '🔮', x: 190, y: 470,
+        lines: [
+          "I sensed you approaching before I even heard your engine.",
+          "Welcome to my study. The crystals on the shelf hum a little when visitors arrive.",
+          "Your stars say you're due for a good surprise this week.",
+          "Go well, traveler. The road ahead looks bright."
+        ] },
+      kid: { name: 'Wren', avatar: '🧒', x: 710, y: 500,
+        lines: [
+          "I'm Wren! I paint pictures of the stars my mom Luna tells me about.",
+          "Want to see my favorite one? It's a purple comet.",
+          "Bye for now — sparkle on!"
+        ] }
+    },
+    {
+      name: 'Sky House',
+      body: '#6ea8d8', roof: '#2d5f8a',
+      wallColor: '#5c93c4', floorColor: '#2d5f8a', rugColor: '#dceeff',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Milo', avatar: '🧑\u200d🚀', x: 190, y: 470,
+        lines: [
+          "Perfect timing — I was just charting tonight's sky.",
+          "That telescope caught a great view of Saturn's rings last week.",
+          "I used to want to be an astronaut. Now I just watch the stars from here.",
+          "Clear skies to you on the road!"
+        ] },
+      kid: { name: 'Nova', avatar: '👧', x: 710, y: 500,
+        lines: [
+          "Hiya, I'm Nova! My dad Milo lets me use the telescope on weekends.",
+          "I saw a shooting star last night and made a wish.",
+          "Come back and stargaze with us sometime!"
+        ] }
+    },
+    {
+      name: 'Amber House',
+      body: '#f2a65a', roof: '#a8622a',
+      wallColor: '#e0954f', floorColor: '#8a5227', rugColor: '#fbdcae',
+      decor: [],
+      customDecor: [],
+      npc: { name: 'Hazel', avatar: '📚', x: 190, y: 470,
+        lines: [
+          "Come in, come in — mind the stack of books by the door.",
+          "I've read every book on these shelves twice. Ask me for a recommendation sometime.",
+          "This lamp's been in the family for three generations.",
+          "Lovely chatting with you. Read something good this week!"
+        ] },
+      kid: { name: 'Ollie', avatar: '🧒', x: 710, y: 500,
+        lines: [
+          "I'm Ollie! Grandma Hazel reads me a new story every night.",
+          "My favorite one has a dragon who's afraid of the dark.",
+          "See you next chapter!"
+        ] }
+    },
+  ];
+
+  const roads = [
+    { x1: ORIGINAL_W/2, y1: 0, x2: ORIGINAL_W/2, y2: ORIGINAL_H, width: 140, name: 'Main Street' },
+    { x1: 0, y1: ORIGINAL_H/2, x2: ORIGINAL_W, y2: ORIGINAL_H/2, width: 140, name: 'Center Avenue' },
+    { x1: 380, y1: 380, x2: 1220, y2: 380, width: 120, name: 'Loop Drive' },
+    { x1: 380, y1: 1220, x2: 1220, y2: 1220, width: 120, name: 'Loop Drive' },
+    { x1: 380, y1: 380, x2: 380, y2: 1220, width: 120, name: 'Loop Drive' },
+    { x1: 1220, y1: 380, x2: 1220, y2: 1220, width: 120, name: 'Loop Drive' },
+  ];
+
+  // ---- Expansion area content (used for hand-crafted Level 3) ----
+  const expansionHousePositions = [
+    { x: 2000, y: 500 },
+    { x: 2300, y: 780 },
+    { x: 2000, y: 1060 },
+  ];
+  const expansionHouseDefs = [
+    {
+      name: 'Mint House',
+      body: '#7ec9b5', roof: '#3d8a70',
+      wallColor: '#5fae98', floorColor: '#2f6b58', rugColor: '#c9ede2',
+      decor: [], customDecor: [],
+      npc: { name: 'Sage', avatar: '🧑\u200d🎨', x: 190, y: 470,
+        lines: [
+          "Whoa, you found the new part of the neighborhood!",
+          "I just moved into the Mint House. Still unpacking my paints.",
+          "Thanks for exploring all the way out here!"
+        ] },
+      kid: { name: 'Pip', avatar: '🧒', x: 710, y: 500,
+        lines: [
+          "Hiya, I'm Pip! This side of town is way less crowded.",
+          "Wanna hear a secret? There might be even more roads someday.",
+          "See you around!"
+        ] }
+    },
+    {
+      name: 'Coral House',
+      body: '#f28b82', roof: '#a13f36',
+      wallColor: '#dd6f66', floorColor: '#8a3a32', rugColor: '#ffd3ce',
+      decor: [], customDecor: [],
+      npc: { name: 'Coral', avatar: '🧑\u200d⚕️', x: 190, y: 470,
+        lines: [
+          "Oh, hello! I don't get many visitors way out here.",
+          "This house is named after me — funny coincidence, right?",
+          "Come back and visit anytime!"
+        ] },
+      kid: { name: 'Reef', avatar: '👦', x: 710, y: 500,
+        lines: [
+          "I'm Reef! I love collecting rocks from the road.",
+          "This one's my favorite — it's shaped like a heart.",
+          "Bye for now!"
+        ] }
+    },
+    {
+      name: 'Slate House',
+      body: '#8a94a6', roof: '#4a5568',
+      wallColor: '#707c8f', floorColor: '#3a4250', rugColor: '#d6dbe3',
+      decor: [], customDecor: [],
+      npc: { name: 'Slate', avatar: '🧑\u200d🏭', x: 190, y: 470, isBirthdayPerson: true,
+        lines: [
+          "You made it to the last house on the map!",
+          "Hmm, it's awfully quiet in here for a Tuesday...",
+          "Wait... do you hear that?"
+        ] },
+      kid: { name: 'Cobble', avatar: '🧒', x: 710, y: 500,
+        lines: [
+          "Shh! Don't tell Slate yet, but everyone's hiding!",
+          "Go say hi to Slate — you're gonna love this.",
+        ] }
+    },
+  ];
+  const level3ExtraRoads = [
+    { x1: 1220, y1: 780, x2: 1600, y2: 780, width: 100, name: 'Bridge Road' },
+    { x1: 1600, y1: 780, x2: 2000, y2: 500, width: 100, name: 'Mint Lane' },
+    { x1: 2000, y1: 500, x2: 2300, y2: 780, width: 100, name: 'Mint Lane' },
+    { x1: 2300, y1: 780, x2: 2000, y2: 1060, width: 100, name: 'Mint Lane' },
+    { x1: 2000, y1: 1060, x2: 1600, y2: 780, width: 100, name: 'Mint Lane' },
+  ];
+
+  // Hand-crafted house slots grouped into their levels: Level 1 = 2 houses,
+  // Level 2 = 3 houses, Level 3 = 4 houses (the last original house + all 3 expansion houses)
+  const handCraftedLevels = [
+    { positions: housePositions.slice(0, 2), defs: houseDefs.slice(0, 2), extraRoads: [] },
+    { positions: housePositions.slice(2, 5), defs: houseDefs.slice(2, 5), extraRoads: [] },
+    { positions: [housePositions[5], ...expansionHousePositions], defs: [houseDefs[5], ...expansionHouseDefs], extraRoads: level3ExtraRoads },
+  ];
+
+  // ---- Procedural content pools, used once the hand-crafted levels run out ----
+  const proceduralThemes = [
+    { name: 'Blue', body: '#6ea8d8', roof: '#2d5f8a', wallColor: '#5c93c4', floorColor: '#2d5f8a', rugColor: '#dceeff' },
+    { name: 'Rose', body: '#f4a6b7', roof: '#a1465c', wallColor: '#e08a9c', floorColor: '#7a3548', rugColor: '#ffd9e2' },
+    { name: 'Gold', body: '#f2cc4b', roof: '#a1802a', wallColor: '#e0ba3f', floorColor: '#7a611f', rugColor: '#fff2c2' },
+    { name: 'Plum', body: '#9b6bb3', roof: '#5a3470', wallColor: '#875ba0', floorColor: '#472a58', rugColor: '#e6d6f0' },
+    { name: 'Teal', body: '#4fb8a8', roof: '#276f64', wallColor: '#3fa093', floorColor: '#1e574d', rugColor: '#c8f0e8' },
+    { name: 'Clay', body: '#c97b5f', roof: '#7a4530', wallColor: '#b56c50', floorColor: '#5c3423', rugColor: '#f0d3c2' },
+  ];
+  const proceduralAdultNames = ['Jordan', 'Casey', 'Riley', 'Morgan', 'Avery', 'Quinn', 'Taylor', 'Sam', 'Charlie', 'Robin'];
+  const proceduralAdultAvatars = ['🧑\u200d🎨', '🧑\u200d🍳', '🧑\u200d🔧', '🧑\u200d🏫', '🧑\u200d🎤', '🧑\u200d✈️', '🧑\u200d🚒', '🧑\u200d🌾'];
+  const proceduralKidNames = ['Bea', 'Milo', 'Zuri', 'Kai', 'Nell', 'Oz', 'Wynn', 'Juno'];
+  const proceduralKidAvatars = ['🧒', '👦', '👧'];
+  let proceduralCounter = 0;
+
+  function makeProceduralHouseDef() {
+    const theme = proceduralThemes[proceduralCounter % proceduralThemes.length];
+    const adultName = proceduralAdultNames[proceduralCounter % proceduralAdultNames.length];
+    const adultAvatar = proceduralAdultAvatars[proceduralCounter % proceduralAdultAvatars.length];
+    const kidName = proceduralKidNames[proceduralCounter % proceduralKidNames.length];
+    const kidAvatar = proceduralKidAvatars[proceduralCounter % proceduralKidAvatars.length];
+    proceduralCounter++;
+    return {
+      name: `${theme.name} House`,
+      body: theme.body, roof: theme.roof,
+      wallColor: theme.wallColor, floorColor: theme.floorColor, rugColor: theme.rugColor,
+      decor: [], customDecor: [],
+      npc: { name: adultName, avatar: adultAvatar, x: 190, y: 470,
+        lines: [
+          `Hi! I'm ${adultName}. Thanks for driving all the way out here!`,
+          "I just moved into the neighborhood. Still finding my way around.",
+          "Come back and visit again sometime!"
+        ] },
+      kid: { name: kidName, avatar: kidAvatar, x: 710, y: 500,
+        lines: [
+          `Hey, I'm ${kidName}! This is the newest house on the block.`,
+          "I'm still meeting everyone around here.",
+          "Bye for now!"
+        ] },
+    };
+  }
+
+  let frontierX = 2300; // furthest east point used so far
+  const HUB_Y = 780;
+
+  function makeProceduralLevel(levelNumber, houseCount) {
+    const centerX = frontierX + 700;
+    const center = { x: centerX, y: HUB_Y };
+    const radius = 260 + houseCount * 14;
+    const positions = [];
+    const defs = [];
+    const spokeRoads = [];
+    for (let k = 0; k < houseCount; k++) {
+      const angle = (2 * Math.PI * k / houseCount) - Math.PI / 2;
+      const hx = Math.round(center.x + Math.cos(angle) * radius);
+      const hy = Math.round(center.y + Math.sin(angle) * radius);
+      positions.push({ x: hx, y: hy });
+      defs.push(makeProceduralHouseDef());
+      spokeRoads.push({ x1: center.x, y1: center.y, x2: hx, y2: hy, width: 90, name: `Level ${levelNumber} Loop` });
+    }
+    const bridgeRoad = { x1: frontierX, y1: HUB_Y, x2: centerX, y2: HUB_Y, width: 100, name: `Level ${levelNumber} Bridge` };
+    frontierX = centerX + radius;
+    return { positions, defs, extraRoads: [bridgeRoad, ...spokeRoads] };
+  }
+
+  // ---- Level state ----
+  const houses = [];
+  const levels = [];
+  let currentLevel = 0;
+  let visitedCount = 0;
+
+  function unlockNextLevel() {
+    currentLevel++;
+    const houseCount = currentLevel + 1; // level1->2, level2->3, level3->4, level4->5, ...
+    let positions, defs, extraRoads;
+
+    if (currentLevel <= handCraftedLevels.length) {
+      const hc = handCraftedLevels[currentLevel - 1];
+      positions = hc.positions;
+      defs = hc.defs;
+      extraRoads = hc.extraRoads;
+    } else {
+      const gen = makeProceduralLevel(currentLevel, houseCount);
+      positions = gen.positions;
+      defs = gen.defs;
+      extraRoads = gen.extraRoads;
+      WORLD_W = Math.max(WORLD_W, frontierX + 400);
+    }
+
+    const newHouses = positions.map((p, i) => ({
+      x: p.x, y: p.y, w: 130, h: 110,
+      def: defs[i],
+      visited: false,
+      challengeDone: false,
+      level: currentLevel,
+    }));
+
+    houses.push(...newHouses);
+    roads.push(...extraRoads);
+
+    const defaultLevelNames = { 1: 'Country', 2: 'City', 3: 'State' };
+    const levelObj = { number: currentLevel, name: defaultLevelNames[currentLevel] || `Level ${currentLevel}`, houseCount, houses: newHouses };
+    levels.push(levelObj);
+
+    updateProgressDisplay();
+    updateLevelBadge();
+    return levelObj;
+  }
+
+  function updateProgressDisplay() {
+    const lvlHouses = houses.filter(h => h.level === currentLevel);
+    const visitedInLevel = lvlHouses.filter(h => h.visited).length;
+    progressEl.textContent = `Visited ${visitedInLevel} / ${lvlHouses.length}`;
+  }
+
+  function updateLevelBadge() {
+    if (levelBadgeEl) {
+      const lvl = levels[currentLevel - 1];
+      levelBadgeEl.textContent = lvl ? `🏁 ${lvl.name}` : '';
+    }
+  }
+
+  // Kick off Level 1 immediately so the game starts with 2 houses
+  unlockNextLevel();
+
+  const DOOR = { x: 450, y: 830, w: 140, h: 60 };
+  // Two interior partition walls splitting the house into three rooms, each with a doorway gap
+  const PARTITIONS = [
+    { x: 300, half: 16, top: 90, bottom: 740, gapTop: 480, gapBottom: 660 },
+    { x: 600, half: 16, top: 90, bottom: 740, gapTop: 480, gapBottom: 660 },
+  ];
+
+  const car = {
+    x: ORIGINAL_W/2, y: ORIGINAL_H/2 + 300,
+    angle: -Math.PI/2,
+    speed: 0,
+    maxSpeed: 6.5,
+    accel: 0.28,
+    friction: 0.06,
+    turnSpeed: 0.045,
+  };
+
+  const player = {
+    x: DOOR.x, y: DOOR.y - 40,
+    angle: -Math.PI/2,
+    speed: 0,
+    maxSpeed: 5.5,
+    accel: 0.4,
+    friction: 0.08,
+    turnSpeed: 0.08,
+  };
+
+  // Buddy that trails behind, both outside and inside
+  const buddy = { x: car.x - 60, y: car.y + 10 };
+  const outsideTrail = [];   // history of car positions
+  const insideTrail = [];    // history of player positions
+  const TRAIL_LEN = 18;
+  const TRAIL_DELAY = 14;    // how many frames behind the buddy lags
+
+  let gameWon = false;
+  let mode = 'drive';      // 'drive' | 'walk'
+  let nearHouse = null;
+  let activeHouse = null;
+  let nearNpc = false;
+  let nearKid = false;
+  let talking = false;
+  let talkTarget = null;   // 'npc' | 'kid'
+  let lineIndex = 0;
+
+  // ---- Input state (unified for keyboard + joystick) ----
+  const keys = {};
+  const MOVE_KEYS = ['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d',' ','enter'];
+
+  window.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    keys[k] = true;
+    if (MOVE_KEYS.includes(k)) e.preventDefault();
+    if (onboardingActive || levelCompleteActive || partyActive) return;
+
+    if (mode === 'drive' && !talking && (k === 'e' || k === 'enter') && nearHouse) {
+      enterHouse(nearHouse);
+    } else if (mode === 'walk' && !talking && !decorateMode && (k === 'e' || k === 'enter')) {
+      if (nearNpc) startTalk('npc');
+      else if (nearKid) startTalk('kid');
+    } else if (talking && (k === 'enter' || k === ' ')) {
+      handleNextClick();
+    }
+  }, { passive: false });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  // ---- Joystick: unified pointer events ----
+  const zone = document.getElementById('joystick-zone');
+  const nub = document.getElementById('joystick-nub');
+  let joyActive = false;
+  let joyPointerId = null;
+  let joyVec = { x: 0, y: 0 };
+  const joyRadius = 42;
+
+  function joyPointerDown(e) {
+    if (talking || decorateMode || onboardingActive || levelCompleteActive || partyActive) return;
+    joyActive = true;
+    joyPointerId = e.pointerId;
+    zone.setPointerCapture(e.pointerId);
+    updateJoy(e);
+    e.preventDefault();
+  }
+  function joyPointerMove(e) {
+    if (!joyActive || e.pointerId !== joyPointerId) return;
+    updateJoy(e);
+    e.preventDefault();
+  }
+  function joyPointerUp(e) {
+    if (e.pointerId !== joyPointerId) return;
+    joyActive = false;
+    joyPointerId = null;
+    joyVec.x = 0; joyVec.y = 0;
+    nub.style.transform = 'translate(0px, 0px)';
+  }
+  function updateJoy(e) {
+    const rect = zone.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    let dx = e.clientX - cx;
+    let dy = e.clientY - cy;
+    const dist = Math.min(Math.hypot(dx, dy), joyRadius);
+    const ang = Math.atan2(dy, dx);
+    const nx = Math.cos(ang) * dist;
+    const ny = Math.sin(ang) * dist;
+    nub.style.transform = `translate(${nx}px, ${ny}px)`;
+    joyVec.x = nx / joyRadius;
+    joyVec.y = ny / joyRadius;
+  }
+  zone.addEventListener('pointerdown', joyPointerDown);
+  zone.addEventListener('pointermove', joyPointerMove);
+  zone.addEventListener('pointerup', joyPointerUp);
+  zone.addEventListener('pointercancel', joyPointerUp);
+
+  // ---- Boost button: hold to go faster, works while driving or walking ----
+  const boostBtn = document.getElementById('boost-btn');
+  let boostActive = false;
+  const BOOST_MULT = 1.8;
+
+  function boostOn(e) {
+    boostActive = true;
+    boostBtn.classList.add('active');
+    if (e) e.preventDefault();
+  }
+  function boostOff() {
+    boostActive = false;
+    boostBtn.classList.remove('active');
+  }
+  boostBtn.addEventListener('pointerdown', boostOn);
+  boostBtn.addEventListener('pointerup', boostOff);
+  boostBtn.addEventListener('pointercancel', boostOff);
+  boostBtn.addEventListener('pointerleave', boostOff);
+
+  // ---- Slow button: hold to go slower, same deal but the opposite direction ----
+  const slowBtn = document.getElementById('slow-btn');
+  let slowActive = false;
+  const SLOW_MULT = 0.45;
+
+  function slowOn(e) {
+    slowActive = true;
+    slowBtn.classList.add('active');
+    if (e) e.preventDefault();
+  }
+  function slowOff() {
+    slowActive = false;
+    slowBtn.classList.remove('active');
+  }
+  slowBtn.addEventListener('pointerdown', slowOn);
+  slowBtn.addEventListener('pointerup', slowOff);
+  slowBtn.addEventListener('pointercancel', slowOff);
+  slowBtn.addEventListener('pointerleave', slowOff);
+
+  function currentSpeedFactor() {
+    const boosting = boostActive || keys['shift'];
+    const slowing = slowActive || keys['control'];
+    if (boosting) return BOOST_MULT; // boost wins if both are held
+    if (slowing) return SLOW_MULT;
+    return 1;
+  }
+
+  // ---- Toast ----
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1600);
+  }
+
+  // ---- Enter / interior logic ----
+  enterPrompt.addEventListener('click', () => { if (nearHouse) enterHouse(nearHouse); });
+  talkPrompt.addEventListener('click', () => { if (nearNpc && !talking && !decorateMode) startTalk('npc'); });
+  talkPrompt2.addEventListener('click', () => { if (nearKid && !talking && !decorateMode) startTalk('kid'); });
+  leaveBtn.addEventListener('click', () => { if (mode === 'walk' && !talking) exitHouse(); });
+
+  function enterHouse(house) {
+    mode = 'walk';
+    activeHouse = house;
+    enterPrompt.classList.remove('show');
+    houseLabelEl.textContent = house.def.name;
+    player.x = DOOR.x;
+    player.y = DOOR.y - 60;
+    player.angle = -Math.PI/2;
+    player.speed = 0;
+    insideTrail.length = 0;
+    walkTarget = null;
+    walkPointerId = null;
+    decorateMode = false;
+    deselectDecorItem();
+    decorateBar.classList.remove('show');
+    interiorEl.classList.add('show');
+
+    if (!hasSeenHouseTip) {
+      hasSeenHouseTip = true;
+      talking = true;
+      houseTipEl.classList.add('show');
+    }
+  }
+
+  function exitHouse() {
+    interiorEl.classList.remove('show');
+    dialogueBox.classList.remove('show');
+    decorateBar.classList.remove('show');
+    decorateMode = false;
+    deselectDecorItem();
+    talkPrompt.classList.remove('show');
+    talkPrompt2.classList.remove('show');
+    challengeOverlay.classList.remove('show');
+    quizAnswersEl.classList.remove('show');
+    quizAnswersEl.innerHTML = '';
+    nextBtn.style.display = '';
+    talking = false;
+    mode = 'drive';
+    if (activeHouse) {
+      const dx = car.x - activeHouse.x;
+      const dy = car.y - (activeHouse.y + activeHouse.h * 0.3);
+      const d = Math.hypot(dx, dy) || 1;
+      car.x += (dx / d) * 30;
+      car.y += (dy / d) * 30;
+    }
+    activeHouse = null;
+  }
+
+  // ---- Pattern challenge: play once per house before talking to the grown-up ----
+  let challengeSequence = [];
+  let challengeStep = 0;
+  let challengeShowing = false;
+  let challengeSuccessCallback = null;
+
+  function buildChallengeGrid() {
+    challengeGridEl.innerHTML = '';
+    for (let i = 0; i < 4; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'challenge-btn';
+      btn.dataset.c = i;
+      btn.addEventListener('click', () => onChallengeButtonTap(i));
+      challengeGridEl.appendChild(btn);
+    }
+  }
+  buildChallengeGrid();
+
+  function startChallenge(onSuccess) {
+    talking = true;
+    challengeSuccessCallback = onSuccess;
+    const houseLevel = activeHouse ? activeHouse.level : 1;
+    const seqLength = Math.min(4 + Math.floor((houseLevel - 1) / 2), 8);
+    challengeSequence = [];
+    let prev = -1;
+    for (let i = 0; i < seqLength; i++) {
+      let n;
+      do { n = Math.floor(Math.random() * 4); } while (n === prev);
+      challengeSequence.push(n);
+      prev = n;
+    }
+    challengeStep = 0;
+    challengeOverlay.classList.add('show');
+    playChallengeSequence();
+  }
+
+  function playChallengeSequence() {
+    if (challengeShowing) return;
+    challengeShowing = true;
+    challengeStatusEl.textContent = 'Watch closely...';
+    const btns = challengeGridEl.querySelectorAll('.challenge-btn');
+    const ON_MS = 500, OFF_MS = 250;
+    let i = 0;
+    const lightStep = () => {
+      if (i >= challengeSequence.length) {
+        challengeShowing = false;
+        challengeStatusEl.textContent = 'Now tap it back!';
+        return;
+      }
+      btns[challengeSequence[i]].classList.add('lit');
+      setTimeout(() => {
+        btns[challengeSequence[i]].classList.remove('lit');
+        i++;
+        setTimeout(lightStep, OFF_MS);
+      }, ON_MS);
+    };
+    setTimeout(lightStep, 400);
+  }
+
+  function onChallengeButtonTap(i) {
+    if (challengeShowing) return;
+    const btns = challengeGridEl.querySelectorAll('.challenge-btn');
+    btns[i].classList.add('lit');
+    setTimeout(() => btns[i].classList.remove('lit'), 200);
+
+    if (i === challengeSequence[challengeStep]) {
+      challengeStep++;
+      if (challengeStep === challengeSequence.length) {
+        challengeStatusEl.textContent = '🎉 You got it!';
+        setTimeout(() => {
+          challengeOverlay.classList.remove('show');
+          const cb = challengeSuccessCallback;
+          challengeSuccessCallback = null;
+          if (cb) cb();
+        }, 650);
+      }
+    } else {
+      challengeStatusEl.textContent = 'Not quite — watch again!';
+      challengeStep = 0;
+      setTimeout(playChallengeSequence, 700);
+    }
+  }
+  challengeWatchBtn.addEventListener('click', () => {
+    if (!challengeShowing) { challengeStep = 0; playChallengeSequence(); }
+  });
+
+  // ---- Kid math quiz ----
+  let quizAnswer = null;
+  let quizAnswered = false;
+
+  function makeMathQuestion(level) {
+    const lvl = level || 1;
+    const maxOperand = Math.min(6 + lvl * 2, 20);
+    const useMultiply = lvl >= 4 && Math.random() < 0.35;
+    let a, b, answer, text;
+
+    if (useMultiply) {
+      a = 2 + Math.floor(Math.random() * Math.min(4 + lvl, 10));
+      b = 2 + Math.floor(Math.random() * 6);
+      answer = a * b;
+      text = `What's ${a} × ${b}?`;
+    } else {
+      const useAdd = Math.random() < 0.5;
+      a = 1 + Math.floor(Math.random() * maxOperand);
+      b = 1 + Math.floor(Math.random() * maxOperand);
+      if (useAdd) {
+        answer = a + b;
+        text = `What's ${a} + ${b}?`;
+      } else {
+        if (b > a) { const t = a; a = b; b = t; }
+        answer = a - b;
+        text = `What's ${a} - ${b}?`;
+      }
+    }
+
+    const choices = new Set([answer]);
+    while (choices.size < 3) {
+      const offset = (Math.floor(Math.random() * 5) - 2) || 1;
+      const alt = answer + offset;
+      if (alt >= 0) choices.add(alt);
+    }
+    const choiceArr = Array.from(choices);
+    // shuffle
+    for (let i = choiceArr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [choiceArr[i], choiceArr[j]] = [choiceArr[j], choiceArr[i]];
+    }
+    return { text, answer, choices: choiceArr };
+  }
+
+  function startKidQuiz() {
+    quizAnswered = false;
+    const houseLevel = activeHouse ? activeHouse.level : 1;
+    const q = makeMathQuestion(houseLevel);
+    quizAnswer = q.answer;
+    npcLineEl.classList.remove('quiz-feedback', 'quiz-correct', 'quiz-wrong');
+    npcLineEl.textContent = `Before you go — quick question! ${q.text}`;
+    quizAnswersEl.innerHTML = '';
+    quizAnswersEl.classList.add('show');
+    nextBtn.style.display = 'none';
+    q.choices.forEach(choice => {
+      const btn = document.createElement('button');
+      btn.className = 'quiz-answer-btn';
+      btn.textContent = choice;
+      btn.addEventListener('click', () => onQuizAnswer(choice, btn));
+      quizAnswersEl.appendChild(btn);
+    });
+  }
+
+  function onQuizAnswer(choice, btnEl) {
+    if (quizAnswered) return;
+    quizAnswered = true;
+
+    if (choice === quizAnswer) {
+      const allBtns = quizAnswersEl.querySelectorAll('.quiz-answer-btn');
+      allBtns.forEach(b => {
+        if (Number(b.textContent) === quizAnswer) b.classList.add('correct');
+      });
+      npcLineEl.textContent = '🎉 Yeah, you got it right!';
+      npcLineEl.classList.add('quiz-feedback', 'quiz-correct');
+    } else {
+      btnEl.classList.add('wrong');
+      npcLineEl.textContent = 'Not quite!';
+      npcLineEl.classList.add('quiz-feedback', 'quiz-wrong');
+    }
+    nextBtn.style.display = 'inline-block';
+    nextBtn.textContent = 'Done';
+  }
+
+  function handleNextClick() {
+    if (quizAnswersEl.classList.contains('show')) {
+      if (!quizAnswered) return; // wait for them to pick an answer first
+      quizAnswersEl.classList.remove('show');
+      quizAnswersEl.innerHTML = '';
+      nextBtn.style.display = '';
+      endTalk();
+      return;
+    }
+    advanceDialogue();
+  }
+
+  function startTalk(target) {
+    if (target === 'npc' && activeHouse && !activeHouse.challengeDone) {
+      talkPrompt.classList.remove('show');
+      talkPrompt2.classList.remove('show');
+      startChallenge(() => {
+        activeHouse.challengeDone = true;
+        startTalk('npc');
+      });
+      return;
+    }
+    talking = true;
+    talkTarget = target;
+    lineIndex = 0;
+    talkPrompt.classList.remove('show');
+    talkPrompt2.classList.remove('show');
+    const person = target === 'npc' ? activeHouse.def.npc : activeHouse.def.kid;
+    npcNameEl.textContent = person.name;
+    npcLineEl.classList.remove('quiz-feedback', 'quiz-correct', 'quiz-wrong');
+    npcLineEl.textContent = person.lines[0];
+    nextBtn.textContent = person.lines.length > 1 ? 'Next ▸' : 'Done';
+    dialogueBox.classList.add('show');
+  }
+
+  function advanceDialogue() {
+    if (!activeHouse) return;
+    const person = talkTarget === 'npc' ? activeHouse.def.npc : activeHouse.def.kid;
+    const lines = person.lines;
+    lineIndex++;
+    if (lineIndex < lines.length) {
+      npcLineEl.textContent = lines[lineIndex];
+      nextBtn.textContent = (lineIndex === lines.length - 1) ? 'Done' : 'Next ▸';
+    } else if (talkTarget === 'kid') {
+      startKidQuiz();
+    } else if (person.isBirthdayPerson) {
+      triggerSurpriseParty();
+    } else {
+      endTalk();
+    }
+  }
+  nextBtn.addEventListener('click', handleNextClick);
+
+  function endTalk() {
+    dialogueBox.classList.remove('show');
+    const wasNpc = talkTarget === 'npc';
+    const person = wasNpc ? activeHouse.def.npc : activeHouse.def.kid;
+    talking = false;
+    talkTarget = null;
+    showToast(`👋 Said hi to ${person.name}!`);
+
+    const isBirthdayHousehold = activeHouse && activeHouse.def.npc.isBirthdayPerson;
+    if (isBirthdayHousehold) {
+      // the birthday person's own household doesn't sign the card —
+      // only the birthday person's own conversation completes this house
+      player.y += 30;
+      return;
+    }
+
+    const wasAlreadyVisited = activeHouse ? activeHouse.visited : true;
+    if (activeHouse && !activeHouse.visited) {
+      activeHouse.visited = true;
+      visitedCount++;
+      updateProgressDisplay();
+    }
+
+    showSignCardPrompt(person, () => {
+      if (!wasAlreadyVisited) {
+        const levelHouses = houses.filter(h => h.level === currentLevel);
+        if (levelHouses.every(h => h.visited)) {
+          celebrateLevelComplete();
+          return;
+        }
+      }
+      player.y += 30;
+    });
+  }
+
+  function updateBuddyTrail(trail, source) {
+    trail.push({ x: source.x, y: source.y });
+    if (trail.length > TRAIL_LEN) trail.shift();
+    const idx = Math.max(0, trail.length - TRAIL_DELAY);
+    const target = trail[idx] || trail[0];
+    if (target) {
+      buddy.x += (target.x - buddy.x) * 0.15;
+      buddy.y += (target.y - buddy.y) * 0.15;
+    }
+  }
+
+  function update() {
+    if (onboardingActive || levelCompleteActive || partyActive) return;
+    if (mode === 'drive') {
+      if (talking) return;
+      let throttle = 0, steer = 0;
+
+      if (keys['arrowup'] || keys['w']) throttle += 1;
+      if (keys['arrowdown'] || keys['s']) throttle -= 1;
+      if (keys['arrowleft'] || keys['a']) steer -= 1;
+      if (keys['arrowright'] || keys['d']) steer += 1;
+
+      if (Math.abs(joyVec.x) > 0.01 || Math.abs(joyVec.y) > 0.01) {
+        const mag = Math.min(Math.hypot(joyVec.x, joyVec.y), 1);
+        if (mag > 0.15) {
+          const targetAngle = Math.atan2(joyVec.y, joyVec.x);
+          let diff = targetAngle - car.angle;
+          while (diff > Math.PI) diff -= Math.PI*2;
+          while (diff < -Math.PI) diff += Math.PI*2;
+          steer = Math.max(-1, Math.min(1, diff * 2));
+          throttle = mag;
+        }
+      }
+
+      const boostFactor = currentSpeedFactor();
+
+      car.speed += throttle * car.accel * boostFactor;
+      car.speed *= (1 - car.friction);
+      const carMax = car.maxSpeed * boostFactor;
+      car.speed = Math.max(-carMax/1.6, Math.min(carMax, car.speed));
+
+      if (Math.abs(car.speed) > 0.05) {
+        car.angle += steer * car.turnSpeed * (car.speed > 0 ? 1 : -1) * Math.min(Math.abs(car.speed)/2, 1);
+      }
+
+      car.x += Math.cos(car.angle) * car.speed;
+      car.y += Math.sin(car.angle) * car.speed;
+      car.x = Math.max(30, Math.min(WORLD_W - 30, car.x));
+      car.y = Math.max(30, Math.min(WORLD_H - 30, car.y));
+
+      if (playerCustomization.buddy !== 'none') {
+        updateBuddyTrail(outsideTrail, car);
+      }
+
+      nearHouse = null;
+      for (const h of houses) {
+        if (h.visited) continue;
+        const dist = Math.hypot(car.x - h.x, car.y - (h.y + h.h*0.3));
+        if (dist < 95) { nearHouse = h; break; }
+      }
+      enterPrompt.classList.toggle('show', !!nearHouse);
+
+    } else if (mode === 'walk') {
+      if (talking || decorateMode) return;
+      let throttle = 0, steer = 0;
+
+      if (keys['arrowup'] || keys['w']) throttle += 1;
+      if (keys['arrowdown'] || keys['s']) throttle -= 1;
+      if (keys['arrowleft'] || keys['a']) steer -= 1;
+      if (keys['arrowright'] || keys['d']) steer += 1;
+
+      if (Math.abs(joyVec.x) > 0.01 || Math.abs(joyVec.y) > 0.01) {
+        const mag = Math.min(Math.hypot(joyVec.x, joyVec.y), 1);
+        if (mag > 0.15) {
+          const targetAngle = Math.atan2(joyVec.y, joyVec.x);
+          let diff = targetAngle - player.angle;
+          while (diff > Math.PI) diff -= Math.PI*2;
+          while (diff < -Math.PI) diff += Math.PI*2;
+          steer = Math.max(-1, Math.min(1, diff * 2));
+          throttle = mag;
+        }
+      } else if (walkTarget) {
+        const tdx = walkTarget.x - player.x;
+        const tdy = walkTarget.y - player.y;
+        const tdist = Math.hypot(tdx, tdy);
+        if (tdist > 8) {
+          const targetAngle = Math.atan2(tdy, tdx);
+          let diff = targetAngle - player.angle;
+          while (diff > Math.PI) diff -= Math.PI*2;
+          while (diff < -Math.PI) diff += Math.PI*2;
+          steer = Math.max(-1, Math.min(1, diff * 2));
+          throttle = 1;
+        } else {
+          walkTarget = null;
+        }
+      }
+
+      const boostFactorWalk = currentSpeedFactor();
+
+      player.speed += throttle * player.accel * boostFactorWalk;
+      player.speed *= (1 - player.friction);
+      const playerMax = player.maxSpeed * boostFactorWalk;
+      player.speed = Math.max(-playerMax/1.6, Math.min(playerMax, player.speed));
+
+      if (Math.abs(player.speed) > 0.05) {
+        player.angle += steer * player.turnSpeed * (player.speed > 0 ? 1 : -1) * Math.min(Math.abs(player.speed)/2, 1);
+      }
+
+      const prevX = player.x;
+      player.x += Math.cos(player.angle) * player.speed;
+      player.y += Math.sin(player.angle) * player.speed;
+
+      player.x = Math.max(60, Math.min(ROOM_W - 60, player.x));
+      player.y = Math.max(140, Math.min(ROOM_H - 40, player.y));
+
+      // block movement through either partition wall, except through its doorway gap
+      for (const p of PARTITIONS) {
+        const inWallSpan = player.y > p.top && player.y < p.bottom;
+        const inGap = player.y > p.gapTop && player.y < p.gapBottom;
+        if (inWallSpan && !inGap && Math.abs(player.x - p.x) < p.half + 32) {
+          player.x = prevX < p.x ? p.x - p.half - 32 : p.x + p.half + 32;
+          walkTarget = null;
+        }
+      }
+
+      if (playerCustomization.buddy !== 'none') {
+        updateBuddyTrail(insideTrail, player);
+      }
+
+      const def = activeHouse.def;
+      nearNpc = Math.hypot(player.x - def.npc.x, player.y - def.npc.y) < 90;
+      nearKid = Math.hypot(player.x - def.kid.x, player.y - def.kid.y) < 90;
+      talkPrompt.classList.toggle('show', nearNpc);
+      talkPrompt2.classList.toggle('show', !nearNpc && nearKid);
+
+      const distDoor = Math.hypot(player.x - DOOR.x, player.y - DOOR.y);
+      if (distDoor < 55) {
+        exitHouse();
+      }
+    }
+  }
+
+  function drawRoad(r) {
+    ctx.strokeStyle = '#4a4e57';
+    ctx.lineWidth = r.width;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(r.x1, r.y1); ctx.lineTo(r.x2, r.y2); ctx.stroke();
+    ctx.setLineDash([24, 20]);
+    ctx.strokeStyle = '#f2e9dc';
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(r.x1, r.y1); ctx.lineTo(r.x2, r.y2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function drawHouse(h) {
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.beginPath(); ctx.ellipse(0, h.h*0.55, h.w*0.55, 16, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = h.def.body;
+    ctx.fillRect(-h.w/2, -h.h*0.1, h.w, h.h*0.5);
+    ctx.fillStyle = h.def.roof;
+    ctx.beginPath();
+    ctx.moveTo(-h.w/2 - 12, -h.h*0.1);
+    ctx.lineTo(0, -h.h*0.55);
+    ctx.lineTo(h.w/2 + 12, -h.h*0.1);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#3f2d20';
+    ctx.fillRect(-14, h.h*0.15, 28, h.h*0.25);
+    ctx.fillStyle = '#fef9ec';
+    ctx.fillRect(-h.w/2 + 14, 0, 22, 22);
+    ctx.fillRect(h.w/2 - 36, 0, 22, 22);
+
+    if (h.visited) {
+      ctx.fillStyle = '#2ecc71';
+      ctx.beginPath(); ctx.arc(h.w/2 + 6, -h.h*0.45, 14, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('✓', h.w/2 + 6, -h.h*0.45 + 1);
+    } else {
+      ctx.fillStyle = 'rgba(31,41,55,0.75)';
+      const label = h.def.name;
+      ctx.font = 'bold 13px sans-serif';
+      const tw = ctx.measureText(label).width;
+      ctx.fillRect(-tw/2 - 8, -h.h*0.85, tw + 16, 20);
+      ctx.fillStyle = '#f2e9dc';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, 0, -h.h*0.85 + 10);
+    }
+    ctx.restore();
+  }
+
+  function drawCar() {
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.rotate(car.angle);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.beginPath(); ctx.ellipse(2, 3, 24, 14, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = playerCustomization.carColor;
+    ctx.beginPath();
+    ctx.moveTo(20, 0);
+    ctx.lineTo(12, -12);
+    ctx.lineTo(-16, -12);
+    ctx.lineTo(-20, -7);
+    ctx.lineTo(-20, 7);
+    ctx.lineTo(-16, 12);
+    ctx.lineTo(12, 12);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#2b3a67';
+    ctx.fillRect(-8, -8, 16, 16);
+    ctx.fillStyle = '#fef9ec';
+    ctx.fillRect(16, -8, 4, 4);
+    ctx.fillRect(16, 4, 4, 4);
+    ctx.restore();
+  }
+
+  function drawBuddy() {
+    if (playerCustomization.buddy === 'none') return;
+    ctx.save();
+    ctx.translate(buddy.x, buddy.y);
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(0, 20, 16, 6, 0, 0, Math.PI*2); ctx.fill();
+    ctx.font = '38px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(playerCustomization.buddy, 0, 0);
+    ctx.restore();
+  }
+
+  function drawOutside() {
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const camX = car.x - w/2;
+    const camY = car.y - h/2;
+    ctx.save();
+    ctx.translate(-camX, -camY);
+    const tile = 100;
+    for (let gx = 0; gx < WORLD_W; gx += tile) {
+      for (let gy = 0; gy < WORLD_H; gy += tile) {
+        ctx.fillStyle = ((gx/tile + gy/tile) % 2 === 0) ? '#5c8a4f' : '#558045';
+        ctx.fillRect(gx, gy, tile, tile);
+      }
+    }
+    roads.forEach(drawRoad);
+    drawRoadLabels();
+    houses.forEach(drawHouse);
+    drawBuddy();
+    drawCar();
+    ctx.restore();
+  }
+
+  function drawRoadLabels() {
+    const labeled = new Set();
+    roads.forEach(r => {
+      if (labeled.has(r.name)) return;
+      labeled.add(r.name);
+      const mx = (r.x1 + r.x2) / 2;
+      const my = (r.y1 + r.y2) / 2;
+      ctx.save();
+      ctx.font = 'bold 15px sans-serif';
+      ctx.textAlign = 'center';
+      const tw = ctx.measureText(r.name).width;
+      ctx.fillStyle = 'rgba(31,41,55,0.75)';
+      ctx.fillRect(mx - tw/2 - 8, my - 11, tw + 16, 22);
+      ctx.fillStyle = '#f2e9dc';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(r.name, mx, my + 1);
+      ctx.restore();
+    });
+  }
+
+  function drawRoom() {
+    if (!activeHouse) return;
+    const def = activeHouse.def;
+    const w = roomCanvas.width, h = roomCanvas.height;
+    const scale = w / ROOM_W;
+    rctx.clearRect(0, 0, w, h);
+    rctx.save();
+    rctx.scale(scale, scale);
+
+    rctx.fillStyle = def.wallColor;
+    rctx.fillRect(0, 0, ROOM_W, ROOM_H * 0.62);
+    rctx.fillStyle = def.floorColor;
+    rctx.fillRect(0, ROOM_H * 0.62, ROOM_W, ROOM_H * 0.38);
+    rctx.fillStyle = 'rgba(0,0,0,0.15)';
+    rctx.fillRect(0, ROOM_H * 0.62 - 6, ROOM_W, 6);
+
+    rctx.fillStyle = 'rgba(255,255,255,0.5)';
+    rctx.fillRect(DOOR.x - DOOR.w/2, DOOR.y - DOOR.h/2, DOOR.w, DOOR.h);
+    rctx.strokeStyle = 'rgba(31,41,55,0.5)';
+    rctx.lineWidth = 3;
+    rctx.strokeRect(DOOR.x - DOOR.w/2, DOOR.y - DOOR.h/2, DOOR.w, DOOR.h);
+    rctx.fillStyle = 'rgba(31,41,55,0.65)';
+    rctx.font = 'bold 20px sans-serif';
+    rctx.textAlign = 'center';
+    rctx.fillText('🚪 exit', DOOR.x, DOOR.y + 7);
+
+    // interior partition walls (split the house into three rooms, open at each doorway gap)
+    PARTITIONS.forEach(p => {
+      rctx.fillStyle = '#2a2118';
+      rctx.fillRect(p.x - p.half, p.top, p.half*2, p.gapTop - p.top);
+      rctx.fillRect(p.x - p.half, p.gapBottom, p.half*2, p.bottom - p.gapBottom);
+      // lighter highlight edge so the wall reads as 3D, not just a flat line
+      rctx.fillStyle = 'rgba(255,255,255,0.25)';
+      rctx.fillRect(p.x - p.half, p.top, 4, p.gapTop - p.top);
+      rctx.fillRect(p.x - p.half, p.gapBottom, 4, p.bottom - p.gapBottom);
+      // doorway frame
+      rctx.strokeStyle = '#f2a65a';
+      rctx.lineWidth = 5;
+      rctx.strokeRect(p.x - p.half - 3, p.gapTop, p.half*2 + 6, p.gapBottom - p.gapTop);
+    });
+
+    rctx.fillStyle = 'rgba(255,255,255,0.55)';
+    rctx.font = 'bold 14px sans-serif';
+    rctx.textAlign = 'center';
+    rctx.fillText('Room 1', 150, 130);
+    rctx.fillText('Room 2', 450, 130);
+    rctx.fillText('Room 3', 750, 130);
+
+    def.decor.forEach(d => {
+      rctx.save();
+      rctx.translate(d.x, d.y);
+      rctx.rotate(((d.rotation || 0) * Math.PI) / 180);
+      rctx.scale(d.flip ? -1 : 1, 1);
+      rctx.font = `${d.size}px sans-serif`;
+      rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+      rctx.fillText(d.emoji, 0, 0);
+      rctx.restore();
+      if (decorateMode) {
+        rctx.strokeStyle = d === selectedDecor ? '#f2a65a' : 'rgba(255,255,255,0.5)';
+        rctx.lineWidth = d === selectedDecor ? 3 : 2;
+        rctx.beginPath(); rctx.arc(d.x, d.y, 26, 0, Math.PI*2); rctx.stroke();
+      }
+    });
+
+    // Player-placed decorations
+    def.customDecor.forEach(d => {
+      rctx.save();
+      rctx.translate(d.x, d.y);
+      rctx.rotate(((d.rotation || 0) * Math.PI) / 180);
+      rctx.scale(d.flip ? -1 : 1, 1);
+      rctx.font = `${d.size}px sans-serif`;
+      rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+      rctx.fillText(d.emoji, 0, 0);
+      rctx.restore();
+      if (decorateMode) {
+        rctx.strokeStyle = d === selectedDecor ? '#f2a65a' : 'rgba(255,255,255,0.5)';
+        rctx.lineWidth = d === selectedDecor ? 3 : 2;
+        rctx.beginPath(); rctx.arc(d.x, d.y, 26, 0, Math.PI*2); rctx.stroke();
+      }
+    });
+
+    // Adult NPC
+    rctx.font = '62px sans-serif';
+    rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+    rctx.fillText(def.npc.avatar, def.npc.x, def.npc.y);
+    if (nearNpc && !decorateMode) {
+      rctx.strokeStyle = 'rgba(242,166,90,0.8)';
+      rctx.lineWidth = 3;
+      rctx.beginPath(); rctx.arc(def.npc.x, def.npc.y, 52, 0, Math.PI*2); rctx.stroke();
+    }
+
+    // Kid NPC
+    rctx.font = '48px sans-serif';
+    rctx.fillText(def.kid.avatar, def.kid.x, def.kid.y);
+    if (nearKid && !decorateMode) {
+      rctx.strokeStyle = 'rgba(242,166,90,0.8)';
+      rctx.lineWidth = 3;
+      rctx.beginPath(); rctx.arc(def.kid.x, def.kid.y, 42, 0, Math.PI*2); rctx.stroke();
+    }
+
+    // Buddy
+    if (playerCustomization.buddy !== 'none') {
+      rctx.fillStyle = 'rgba(0,0,0,0.2)';
+      rctx.beginPath(); rctx.ellipse(buddy.x, buddy.y + 20, 14, 5, 0, 0, Math.PI*2); rctx.fill();
+      rctx.font = '38px sans-serif';
+      rctx.fillText(playerCustomization.buddy, buddy.x, buddy.y);
+    }
+
+    // Player (rotated to face the direction they're walking, like the car)
+    rctx.fillStyle = 'rgba(0,0,0,0.2)';
+    rctx.beginPath(); rctx.ellipse(player.x, player.y + 24, 20, 7, 0, 0, Math.PI*2); rctx.fill();
+    rctx.save();
+    rctx.translate(player.x, player.y);
+    rctx.rotate(player.angle + Math.PI/2);
+    rctx.font = '54px sans-serif';
+    rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+    rctx.fillText(playerCustomization.avatar, 0, 0);
+    rctx.restore();
+
+    rctx.restore();
+  }
+
+  function drawMinimap() {
+    if (mode !== 'drive') {
+      minimapCanvas.classList.add('hide');
+      return;
+    }
+    minimapCanvas.classList.remove('hide');
+    const w = minimapCanvas.width, h = minimapCanvas.height;
+    mctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    const scale = 0.045; // world units -> minimap pixels
+    const range = Math.max(w, h) / 2 / scale;
+
+    // circular clip so dots don't spill past the round frame
+    mctx.save();
+    mctx.beginPath();
+    mctx.arc(cx, cy, w / 2 - 2, 0, Math.PI * 2);
+    mctx.clip();
+
+    // roads as faint lines
+    mctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    mctx.lineWidth = 2;
+    roads.forEach(r => {
+      const x1 = cx + (r.x1 - car.x) * scale;
+      const y1 = cy + (r.y1 - car.y) * scale;
+      const x2 = cx + (r.x2 - car.x) * scale;
+      const y2 = cy + (r.y2 - car.y) * scale;
+      mctx.beginPath();
+      mctx.moveTo(x1, y1);
+      mctx.lineTo(x2, y2);
+      mctx.stroke();
+    });
+
+    // houses as dots
+    houses.forEach(hh => {
+      const dx = hh.x - car.x, dy = hh.y - car.y;
+      if (Math.hypot(dx, dy) > range * 1.3) return;
+      const mx = cx + dx * scale, my = cy + dy * scale;
+      mctx.fillStyle = hh.visited ? '#2ecc71' : (hh.def.body || '#f2a65a');
+      mctx.beginPath();
+      mctx.arc(mx, my, 4, 0, Math.PI * 2);
+      mctx.fill();
+    });
+
+    // car as a small triangle pointing in its facing direction, always centered
+    mctx.save();
+    mctx.translate(cx, cy);
+    mctx.rotate(car.angle);
+    mctx.fillStyle = playerCustomization.carColor;
+    mctx.beginPath();
+    mctx.moveTo(6, 0);
+    mctx.lineTo(-5, -4);
+    mctx.lineTo(-5, 4);
+    mctx.closePath();
+    mctx.fill();
+    mctx.restore();
+
+    mctx.restore();
+  }
+
+  function loop() {
+    update();
+    if (mode === 'drive') drawOutside(); else drawRoom();
+    drawMinimap();
+    if (selectedDecor) positionDecorToolbar();
+    if (gameWon && mode === 'drive' && !winEl.classList.contains('show')) {
+      winEl.classList.add('show');
+    }
+    requestAnimationFrame(loop);
+  }
+
+  restartBtn.addEventListener('click', () => {
+    houses.forEach(h => { h.visited = false; h.challengeDone = false; });
+    visitedCount = 0;
+    gameWon = false;
+    mode = 'drive';
+    activeHouse = null;
+    talking = false;
+    progressEl.textContent = `Visited 0 / ${houses.length}`;
+    updateProgressDisplay();
+    car.x = ORIGINAL_W/2; car.y = ORIGINAL_H/2 + 300;
+    car.angle = -Math.PI/2;
+    car.speed = 0;
+    outsideTrail.length = 0;
+    winEl.classList.remove('show');
+    interiorEl.classList.remove('show');
+    dialogueBox.classList.remove('show');
+  });
+
+  loop();
+})();
+</script>
+</body>
+</html>
