@@ -315,6 +315,28 @@
     color: white;
     border-color: #7b2d8e;
   }
+  .roomTab {
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: bold;
+    font-size: 0.8em;
+    color: #555;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .roomTab.active {
+    background: #7b2d8e;
+    border-color: #7b2d8e;
+    color: white;
+  }
+  .roomTab.locked {
+    color: #bbb;
+    border-style: dashed;
+  }
 
   /* Neighborhood / driving screen */
   #neighborhoodScreen, #friendHouseScreen, #workScreen, #schoolScreen, #realtyScreen, #careersScreen, #officeScreen {
@@ -481,7 +503,7 @@
       <li>🕹️ Tap the arrows, or tap the floor, to move around.</li>
       <li>🚗 Drive to visit friends, go to work, or go to school.</li>
       <li>👕 Visit your Closet to dress up your character.</li>
-      <li>🛋️ Decorate your house with colors, wallpaper, and furniture from the shop.</li>
+      <li>🛋️ Decorate your house with colors, wallpaper, and furniture from the shop. Upgrading your house unlocks whole new rooms!</li>
       <li>💰 Earn money at work and level up your job and house!</li>
     </ul>
     <button onclick="dismissIntro()">Let's Play! ▶</button>
@@ -516,6 +538,7 @@
 
 <div id="houseScreen">
   <div id="houseTierBadge" style="text-align:center; font-weight:bold; color:#7b2d8e; background:#fff3b0; border:2px solid #e0c34a; border-radius:12px; padding:6px 10px; margin-bottom:8px; max-width:400px;">🏠 Starter Home</div>
+  <div id="roomTabs" style="display:flex; gap:6px; flex-wrap:wrap; justify-content:center; width:100%; max-width:420px; box-sizing:border-box; margin-bottom:8px;"></div>
   <div id="houseBox">
     <svg id="wall" viewBox="0 0 400 220" preserveAspectRatio="none"></svg>
     <svg id="floor" viewBox="0 0 400 100" preserveAspectRatio="none"></svg>
@@ -941,8 +964,22 @@ var s = { skin:0, hairColor:0, hair:0, eyes:0, outfit:0, outfitStyle:0, pattern:
 
 var wallColors = ['#ffe9c7','#c9f0ff','#d9f2d0','#ffd6e8','#e6dcff','#fff3b0'];
 var floorColors = ['#c9975b','#e8c39e','#b0b0b0','#8d6e4f','#f0e0c0','#a3c9a8'];
-var h = { wall:0, floor:0, wallPattern:0, charX:50, charY:65, facing:1, furniture:{} };
+var h = { charX:50, charY:65, facing:1 };
 var wallPatterns = ['plain','stripes','dots'];
+
+/* Each house tier unlocks one more room (see unlockedRoomCount). Every
+   room keeps its own wall/floor/pattern/furniture, like a separate house. */
+var rooms = [
+  { name: 'Living Room', icon: '🛋️', wall:0, floor:0, wallPattern:0, furniture:{} },
+  { name: 'Bedroom', icon: '🛏️', wall:1, floor:1, wallPattern:0, furniture:{} },
+  { name: 'Kitchen', icon: '🍳', wall:2, floor:2, wallPattern:0, furniture:{} },
+  { name: 'Game Room', icon: '🎮', wall:3, floor:3, wallPattern:0, furniture:{} }
+];
+var currentRoom = 0;
+
+function unlockedRoomCount(){
+  return houseTier + 1;
+}
 
 var houseTiers = [
   { name: 'Starter Home', cost: 0, extraWall: [], extraFloor: [], glow: '0 4px 14px rgba(0,0,0,0.2)', height: 300, deco: '' },
@@ -1033,10 +1070,10 @@ function saveGame(){
   try{
     var data = {
       money: money,
-      wall: h.wall,
-      floor: h.floor,
-      wallPattern: h.wallPattern,
-      furniture: h.furniture,
+      rooms: rooms.map(function(r){
+        return { wall: r.wall, floor: r.floor, wallPattern: r.wallPattern, furniture: r.furniture };
+      }),
+      currentRoom: currentRoom,
       kidFollowing: kidFollowing,
       houseTier: houseTier,
       jobTier: jobTier,
@@ -1057,16 +1094,32 @@ function loadGame(){
     if(!raw) return;
     var data = JSON.parse(raw);
     if(typeof data.money === 'number') money = data.money;
-    if(typeof data.wall === 'number') h.wall = data.wall;
-    if(typeof data.floor === 'number') h.floor = data.floor;
-    if(typeof data.wallPattern === 'number') h.wallPattern = data.wallPattern;
-    if(data.furniture){
-      Object.keys(data.furniture).forEach(function(key){
-        if(h.furniture[key]) h.furniture[key] = data.furniture[key];
+    if(data.rooms && Array.isArray(data.rooms)){
+      data.rooms.forEach(function(rd, i){
+        if(!rooms[i]) return;
+        if(typeof rd.wall === 'number') rooms[i].wall = rd.wall;
+        if(typeof rd.floor === 'number') rooms[i].floor = rd.floor;
+        if(typeof rd.wallPattern === 'number') rooms[i].wallPattern = rd.wallPattern;
+        if(rd.furniture){
+          Object.keys(rd.furniture).forEach(function(key){
+            if(rooms[i].furniture[key]) rooms[i].furniture[key] = rd.furniture[key];
+          });
+        }
       });
+    } else {
+      /* Migrate an old single-room save into the Living Room. */
+      if(typeof data.wall === 'number') rooms[0].wall = data.wall;
+      if(typeof data.floor === 'number') rooms[0].floor = data.floor;
+      if(typeof data.wallPattern === 'number') rooms[0].wallPattern = data.wallPattern;
+      if(data.furniture){
+        Object.keys(data.furniture).forEach(function(key){
+          if(rooms[0].furniture[key]) rooms[0].furniture[key] = data.furniture[key];
+        });
+      }
     }
     if(typeof data.kidFollowing === 'boolean') kidFollowing = data.kidFollowing;
     if(typeof data.houseTier === 'number') houseTier = Math.min(data.houseTier, houseTiers.length - 1);
+    if(typeof data.currentRoom === 'number') currentRoom = Math.min(data.currentRoom, Math.min(houseTier, rooms.length - 1));
     if(typeof data.jobTier === 'number') jobTier = Math.min(data.jobTier, jobTiers.length - 1);
     if(data.timeOfDay === 'day' || data.timeOfDay === 'night') timeOfDay = data.timeOfDay;
     if(data.character){
@@ -1091,9 +1144,11 @@ function earnMoney(amount){
   saveGame();
 }
 
-Object.keys(furnitureDefs).forEach(function(key, i){
-  var def = furnitureDefs[key];
-  h.furniture[key] = { on: i < 3, x: def.dx, y: def.dy };
+rooms.forEach(function(room, ri){
+  Object.keys(furnitureDefs).forEach(function(key, i){
+    var def = furnitureDefs[key];
+    room.furniture[key] = { on: (ri === 0 && i < 3), x: def.dx, y: def.dy };
+  });
 });
 
 function hairSvg(style, color){
@@ -1186,9 +1241,9 @@ function houseDots(id, colors, key){
   el.innerHTML = '';
   colors.forEach(function(c,i){
     var d = document.createElement('div');
-    d.className = 'dot' + (h[key]===i ? ' sel' : '');
+    d.className = 'dot' + (rooms[currentRoom][key]===i ? ' sel' : '');
     d.style.background = c;
-    d.onclick = function(){ h[key]=i; refreshHouse(); saveGame(); };
+    d.onclick = function(){ rooms[currentRoom][key]=i; refreshHouse(); saveGame(); };
     el.appendChild(d);
   });
 }
@@ -1238,17 +1293,18 @@ function navCloset(){
 function buildFurnChips(){
   var el = document.getElementById('furnTray');
   el.innerHTML = '';
+  var furniture = rooms[currentRoom].furniture;
   Object.keys(furnitureDefs).forEach(function(key){
     var def = furnitureDefs[key];
     var price = furniturePrices[key];
-    var owned = h.furniture[key].on;
+    var owned = furniture[key].on;
     var item = document.createElement('div');
     item.className = 'trayItem' + (owned ? ' on' : '');
     var priceTag = owned ? '' : '<div class="priceTag">$' + price + '</div>';
     item.innerHTML = def.svg + '<span class="check">&#10003;</span>' + priceTag;
     item.onclick = function(){
-      if(h.furniture[key].on){
-        h.furniture[key].on = false;
+      if(furniture[key].on){
+        furniture[key].on = false;
         buildFurnChips();
         drawRoom();
         saveGame();
@@ -1263,7 +1319,7 @@ function buildFurnChips(){
       }
       money -= price;
       updateMoneyBadge();
-      h.furniture[key].on = true;
+      furniture[key].on = true;
       buildFurnChips();
       drawRoom();
       saveGame();
@@ -1293,8 +1349,8 @@ function dragMove(ev){
   var clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
   var px = (clientX - rect.left) / rect.width * 100;
   var py = (clientY - rect.top) / rect.height * 100;
-  h.furniture[dragging].x = Math.max(4, Math.min(96, px));
-  h.furniture[dragging].y = Math.max(4, Math.min(96, py));
+  rooms[currentRoom].furniture[dragging].x = Math.max(4, Math.min(96, px));
+  rooms[currentRoom].furniture[dragging].y = Math.max(4, Math.min(96, py));
   drawRoom();
 }
 
@@ -1396,7 +1452,7 @@ function watchTV(){
 
 function removeFurn(key, ev){
   ev.stopPropagation();
-  h.furniture[key].on = false;
+  rooms[currentRoom].furniture[key].on = false;
   pickedKey = null;
   buildFurnChips();
   drawRoom();
@@ -1407,17 +1463,18 @@ function drawRoom(){
   var wall = document.getElementById('wall');
   var floor = document.getElementById('floor');
   var furnEl = document.getElementById('furniture');
+  var room = rooms[currentRoom];
   var wp = '';
-  if(wallPatterns[h.wallPattern]==='stripes'){
+  if(wallPatterns[room.wallPattern]==='stripes'){
     for(var x=0; x<400; x+=30){ wp += '<rect x="'+x+'" y="0" width="14" height="200" fill="rgba(255,255,255,0.25)"/>'; }
-  } else if(wallPatterns[h.wallPattern]==='dots'){
+  } else if(wallPatterns[room.wallPattern]==='dots'){
     for(var y=15; y<190; y+=35){ for(var x=15; x<390; x+=35){ wp += '<circle cx="'+x+'" cy="'+y+'" r="6" fill="rgba(255,255,255,0.3)"/>'; } }
   }
-  wall.innerHTML = '<rect x="0" y="0" width="400" height="220" fill="'+getWallColors()[h.wall]+'"/>' + wp + '<rect x="0" y="200" width="400" height="20" fill="rgba(0,0,0,0.05)"/>';
-  floor.innerHTML = '<rect x="0" y="0" width="400" height="100" fill="'+getFloorColors()[h.floor]+'"/>';
+  wall.innerHTML = '<rect x="0" y="0" width="400" height="220" fill="'+getWallColors()[room.wall]+'"/>' + wp + '<rect x="0" y="200" width="400" height="20" fill="rgba(0,0,0,0.05)"/>';
+  floor.innerHTML = '<rect x="0" y="0" width="400" height="100" fill="'+getFloorColors()[room.floor]+'"/>';
   var pieces = '';
   Object.keys(furnitureDefs).forEach(function(key){
-    var f = h.furniture[key];
+    var f = room.furniture[key];
     if(!f.on) return;
     var def = furnitureDefs[key];
     var pickedClass = (pickedKey === key) ? ' picked' : '';
@@ -1426,7 +1483,7 @@ function drawRoom(){
   });
   furnEl.innerHTML = pieces;
   Object.keys(furnitureDefs).forEach(function(key){
-    var f = h.furniture[key];
+    var f = room.furniture[key];
     if(!f.on) return;
     var el = furnEl.querySelector('[data-key="'+key+'"]');
     if(el){
@@ -1443,12 +1500,44 @@ function drawRoom(){
 }
 
 function refreshHouse(){
+  buildRoomTabs();
   houseDots('wallDots', getWallColors(), 'wall');
   houseDots('floorDots', getFloorColors(), 'floor');
   buildWallPatternChips();
   buildFurnChips();
   drawRoom();
   applyHouseTierStyle();
+}
+
+function buildRoomTabs(){
+  var el = document.getElementById('roomTabs');
+  el.innerHTML = '';
+  var unlocked = unlockedRoomCount();
+  rooms.forEach(function(room, i){
+    var locked = i >= unlocked;
+    var btn = document.createElement('button');
+    btn.className = 'roomTab' + (i === currentRoom ? ' active' : '') + (locked ? ' locked' : '');
+    btn.textContent = (locked ? '🔒' : room.icon) + ' ' + room.name;
+    btn.onclick = function(){ switchRoom(i); };
+    el.appendChild(btn);
+  });
+}
+
+function switchRoom(i){
+  if(i >= unlockedRoomCount()){
+    var msg = document.getElementById('shopMsg');
+    msg.textContent = 'Upgrade your house at the Realty Office to unlock this room!';
+    msg.style.display = 'block';
+    setTimeout(function(){ msg.style.display = 'none'; }, 2200);
+    return;
+  }
+  if(i === currentRoom) return;
+  currentRoom = i;
+  pickedKey = null;
+  h.charX = 50; h.charY = 65; h.facing = 1;
+  refreshHouse();
+  positionChar();
+  saveGame();
 }
 
 function applyHouseTierStyle(){
@@ -1467,9 +1556,9 @@ function buildWallPatternChips(){
   el.innerHTML = '';
   wallPatterns.forEach(function(p, i){
     var c = document.createElement('div');
-    c.className = 'chip' + (h.wallPattern===i ? ' on' : '');
+    c.className = 'chip' + (rooms[currentRoom].wallPattern===i ? ' on' : '');
     c.textContent = p.charAt(0).toUpperCase() + p.slice(1);
-    c.onclick = function(){ h.wallPattern = i; buildWallPatternChips(); drawRoom(); saveGame(); };
+    c.onclick = function(){ rooms[currentRoom].wallPattern = i; buildWallPatternChips(); drawRoom(); saveGame(); };
     el.appendChild(c);
   });
 }
@@ -2832,8 +2921,9 @@ function renderRealty(){
     return;
   }
   var next = houseTiers[houseTier + 1];
+  var newRoom = rooms[houseTier + 1];
   card.innerHTML = '<div style="font-weight:bold; color:#7b2d8e;">Next up: ' + next.name + '</div>' +
-    '<div style="color:#555; margin-top:4px;">Unlocks new wall & floor colors, plus a fancier home!</div>' +
+    '<div style="color:#555; margin-top:4px;">Unlocks a whole new room — the ' + newRoom.icon + ' ' + newRoom.name + ' — plus new wall & floor colors!</div>' +
     '<div style="font-weight:bold; color:#7a5c00; margin-top:6px;">Cost: $' + next.cost + '</div>';
   btn.style.display = 'block';
   btn.textContent = 'Buy Upgrade ($' + next.cost + ')';
