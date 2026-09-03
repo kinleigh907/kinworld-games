@@ -337,6 +337,25 @@
     color: #bbb;
     border-style: dashed;
   }
+  .lineCustomer {
+    width: 28px;
+    height: 37px;
+    position: relative;
+  }
+  .lineCustomer .patienceBar {
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .lineCustomer .patienceFill {
+    height: 100%;
+    transition: width 1s linear, background 1s linear;
+  }
 
   /* Neighborhood / driving screen */
   #neighborhoodScreen, #friendHouseScreen, #workScreen, #schoolScreen, #realtyScreen, #careersScreen, #officeScreen {
@@ -727,6 +746,7 @@
         <div style="position:absolute; right:6px; top:48%; width:6px; height:6px; border-radius:50%; background:#ffd93d;"></div>
       </div>
     </div>
+    <div id="customerLine" style="position:absolute; left:50%; top:2%; transform:translateX(-50%); display:flex; gap:8px; z-index:8; pointer-events:none;"></div>
     <div id="shelfLeft" style="position:absolute; left:2%; top:14%; width:70px; height:150px; z-index:2;">
       <svg viewBox="0 0 70 150" width="100%" height="100%">
         <rect x="0" y="0" width="70" height="150" fill="#a3714a"/>
@@ -1080,7 +1100,8 @@ function saveGame(){
       timeOfDay: timeOfDay,
       character: s,
       introSeen: introSeen,
-      workTipSeen: workTipSeen
+      workTipSeen: workTipSeen,
+      salesCompleted: salesCompleted
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch(e){
@@ -1129,6 +1150,7 @@ function loadGame(){
     }
     if(typeof data.introSeen === 'boolean') introSeen = data.introSeen;
     if(typeof data.workTipSeen === 'boolean') workTipSeen = data.workTipSeen;
+    if(typeof data.salesCompleted === 'number') salesCompleted = data.salesCompleted;
   } catch(e){
     storageAvailable = false;
   }
@@ -2128,9 +2150,71 @@ function closeDoor(panelId){
   document.getElementById(panelId || 'doorPanel').style.transform = 'rotateY(0deg)';
 }
 
+/* Once the cashier's had a few sales, extra customers start lining up
+   outside while one is being served. Each has a patience timer; if it
+   runs out before you get to them, they leave and you lose that sale. */
+var salesCompleted = 0;
+var customerLine = [];
+var lineIdCounter = 0;
+var linePatienceSeconds = 16;
+var lineTickTimer = null;
+
+function maxLineSize(){
+  if(salesCompleted < 3) return 0;
+  if(salesCompleted < 8) return 1;
+  return 2;
+}
+
+function startLineTicker(){
+  stopLineTicker();
+  lineTickTimer = setInterval(tickCustomerLine, 1000);
+}
+
+function stopLineTicker(){
+  if(lineTickTimer){ clearInterval(lineTickTimer); lineTickTimer = null; }
+}
+
+function tickCustomerLine(){
+  var anyLeft = false;
+  var stillWaiting = [];
+  customerLine.forEach(function(c){
+    c.timeLeft--;
+    if(c.timeLeft <= 0) anyLeft = true;
+    else stillWaiting.push(c);
+  });
+  customerLine = stillWaiting;
+  renderCustomerLine();
+  if(anyLeft){
+    document.getElementById('workCaption').textContent = "😤 A customer got tired of waiting and left the line!";
+  }
+  if(customerLine.length < maxLineSize() && Math.random() < 0.5){
+    customerLine.push({ id: lineIdCounter++, timeLeft: linePatienceSeconds });
+    renderCustomerLine();
+  }
+}
+
+function renderCustomerLine(){
+  var el = document.getElementById('customerLine');
+  if(!el) return;
+  el.innerHTML = '';
+  customerLine.forEach(function(c){
+    var pct = Math.max(0, Math.round((c.timeLeft / linePatienceSeconds) * 100));
+    var color = pct > 50 ? '#4fbf9f' : (pct > 25 ? '#ffd93d' : '#ff6b6b');
+    var wrap = document.createElement('div');
+    wrap.className = 'lineCustomer';
+    wrap.innerHTML = '<svg viewBox="0 0 60 80" width="100%" height="100%">' + customerSvg() + '</svg>' +
+      '<div class="patienceBar"><div class="patienceFill" style="width:' + pct + '%; background:' + color + ';"></div></div>';
+    el.appendChild(wrap);
+  });
+}
+
 function ringRegister(){
   if(registerBusy) return;
   registerBusy = true;
+  if(customerLine.length > 0){
+    customerLine.shift();
+    renderCustomerLine();
+  }
   setWorkButtons('none');
   draw('charWork');
   var cust = document.getElementById('customerWork');
@@ -2226,6 +2310,8 @@ function answerCustomer(optIndex){
     pendingStep = 0;
     var payout = Math.round(scanTotal * jobTiers[jobTier].multiplier);
     earnMoney(payout);
+    salesCompleted++;
+    saveGame();
     var bonusNote = jobTiers[jobTier].multiplier > 1 ? ' (' + jobTiers[jobTier].title + ' bonus applied!)' : '';
     document.getElementById('workCaption').textContent = 'Sale complete! You earned $' + payout + '!' + bonusNote;
     var cust = document.getElementById('customerWork');
@@ -2271,6 +2357,9 @@ function goToRegister(){
   pendingConvo = null;
   pendingStep = 0;
   registerBusy = false;
+  customerLine = [];
+  renderCustomerLine();
+  startLineTicker();
   setWorkButtons('ring');
   var jt = jobTiers[jobTier];
   document.getElementById('jobTitleBadge').textContent = '👔 ' + jt.title + (jt.multiplier > 1 ? ' (' + jt.multiplier + 'x pay)' : '');
@@ -2858,6 +2947,7 @@ function hideAllScreens(){
   ['houseScreen','closetScreen','neighborhoodScreen','friendHouseScreen','workScreen','schoolScreen','realtyScreen','careersScreen','officeScreen'].forEach(function(id){
     document.getElementById(id).style.display = 'none';
   });
+  stopLineTicker();
 }
 
 function setActiveNav(id){
