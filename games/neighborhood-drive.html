@@ -49,7 +49,7 @@
     border-radius: 20px;
     border: 1px solid rgba(242,166,90,0.4);
   }
-  #customize-btn, #decorate-btn, #names-btn, #card-btn {
+  #customize-btn, #decorate-btn, #names-btn, #card-btn, #music-btn {
     background: rgba(31,41,55,0.75);
     color: var(--panel-light);
     border: 1px solid rgba(242,166,90,0.4);
@@ -1106,6 +1106,7 @@
     </div>
     <div id="hud-right">
       <div id="progress">Visited 0 / 6</div>
+      <button id="music-btn">🎵</button>
       <div id="level-badge"></div>
     </div>
   </div>
@@ -1492,9 +1493,69 @@
   function closeOnboarding() {
     onboardingEl.classList.add('hide');
     onboardingActive = false;
+    startMusic();
   }
   onboardingStart.addEventListener('click', closeOnboarding);
   const namesHousesEl = document.getElementById('names-houses');
+
+  // ---- Background music: a short looping tune, generated with Web Audio
+  // (no audio file needed). Starts on Start Game, since browsers require
+  // a user gesture before audio can play.
+  const musicBtn = document.getElementById('music-btn');
+  let musicOn = true;
+  let musicCtx = null;
+  let musicGainNode = null;
+  let musicTimer = null;
+  let musicStep = 0;
+  const MUSIC_STEP_MS = 260;
+  // A cheerful little melody that loops; 0 means a rest (no note that step).
+  const MUSIC_MELODY = [
+    392, 440, 494, 440, 392, 0, 330, 0,
+    392, 440, 494, 523, 494, 440, 392, 0,
+  ];
+
+  function ensureMusicCtx() {
+    if (musicCtx) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    musicCtx = new AudioCtx();
+    musicGainNode = musicCtx.createGain();
+    musicGainNode.gain.value = 0.06;
+    musicGainNode.connect(musicCtx.destination);
+  }
+
+  function playMusicNote(freq) {
+    if (!freq || !musicCtx) return;
+    const osc = musicCtx.createOscillator();
+    const g = musicCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const now = musicCtx.currentTime;
+    const stepSec = MUSIC_STEP_MS / 1000;
+    g.gain.setValueAtTime(0.0001, now);
+    g.gain.exponentialRampToValueAtTime(1, now + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + stepSec * 0.9);
+    osc.connect(g);
+    g.connect(musicGainNode);
+    osc.start(now);
+    osc.stop(now + stepSec);
+  }
+
+  function startMusic() {
+    ensureMusicCtx();
+    if (!musicCtx || musicTimer) return;
+    if (musicCtx.state === 'suspended') musicCtx.resume();
+    musicTimer = setInterval(() => {
+      if (musicOn) playMusicNote(MUSIC_MELODY[musicStep % MUSIC_MELODY.length]);
+      musicStep++;
+    }, MUSIC_STEP_MS);
+  }
+
+  musicBtn.addEventListener('click', () => {
+    musicOn = !musicOn;
+    musicBtn.textContent = musicOn ? '🎵' : '🔇';
+    if (musicOn && musicCtx && musicCtx.state === 'suspended') musicCtx.resume();
+  });
 
   const ORIGINAL_W = 1600;
   const ORIGINAL_H = 1600;
