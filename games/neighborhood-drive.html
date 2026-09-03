@@ -1816,7 +1816,7 @@
     }
 
     // Not decorating: tap-and-drag to walk there directly (backup to the joystick)
-    if (talking) return;
+    if (talking || mode !== 'walk') return;
     walkPointerId = e.pointerId;
     roomCanvas.setPointerCapture(e.pointerId);
     updateWalkTarget(e);
@@ -2188,6 +2188,44 @@
     { x: 600, half: 16, top: 90, bottom: 740, gapTop: 480, gapBottom: 660 },
   ];
 
+  // ---- Front-yard maze: a short maze to solve before a house's door opens ----
+  const MAZE_COLS = 5, MAZE_ROWS = 5, MAZE_CELL = 120;
+  const mazeStart = { cx: 0, cy: MAZE_ROWS - 1 };
+  const mazeExit = { cx: MAZE_COLS - 1, cy: 0 };
+  let mazeGrid = [];
+
+  function generateMaze() {
+    const cols = MAZE_COLS, rows = MAZE_ROWS;
+    const grid = [];
+    for (let x = 0; x < cols; x++) {
+      const col = [];
+      for (let y = 0; y < rows; y++) col.push({ x, y, visited: false, walls: { N: true, S: true, E: true, W: true } });
+      grid.push(col);
+    }
+    const opposite = { N: 'S', S: 'N', E: 'W', W: 'E' };
+    const stack = [grid[mazeStart.cx][mazeStart.cy]];
+    stack[0].visited = true;
+    while (stack.length) {
+      const cur = stack[stack.length - 1];
+      const options = [];
+      if (cur.y > 0 && !grid[cur.x][cur.y - 1].visited) options.push({ cell: grid[cur.x][cur.y - 1], dir: 'N' });
+      if (cur.y < rows - 1 && !grid[cur.x][cur.y + 1].visited) options.push({ cell: grid[cur.x][cur.y + 1], dir: 'S' });
+      if (cur.x > 0 && !grid[cur.x - 1][cur.y].visited) options.push({ cell: grid[cur.x - 1][cur.y], dir: 'W' });
+      if (cur.x < cols - 1 && !grid[cur.x + 1][cur.y].visited) options.push({ cell: grid[cur.x + 1][cur.y], dir: 'E' });
+      if (!options.length) { stack.pop(); continue; }
+      const pick = options[Math.floor(Math.random() * options.length)];
+      cur.walls[pick.dir] = false;
+      pick.cell.walls[opposite[pick.dir]] = false;
+      pick.cell.visited = true;
+      stack.push(pick.cell);
+    }
+    mazeGrid = grid;
+  }
+
+  function mazeCellCenter(cx, cy) {
+    return { x: cx * MAZE_CELL + MAZE_CELL / 2, y: cy * MAZE_CELL + MAZE_CELL / 2 };
+  }
+
   const car = {
     x: ORIGINAL_W/2, y: ORIGINAL_H/2 + 300,
     angle: -Math.PI/2,
@@ -2216,7 +2254,7 @@
   const TRAIL_DELAY = 14;    // how many frames behind the buddy lags
 
   let gameWon = false;
-  let mode = 'drive';      // 'drive' | 'walk'
+  let mode = 'drive';      // 'drive' | 'maze' | 'walk'
   let nearHouse = null;
   let activeHouse = null;
   let nearNpc = false;
@@ -2352,13 +2390,13 @@
   enterPrompt.addEventListener('click', () => { if (nearHouse) enterHouse(nearHouse); });
   talkPrompt.addEventListener('click', () => { if (nearNpc && !talking && !decorateMode) startTalk('npc'); });
   talkPrompt2.addEventListener('click', () => { if (nearKid && !talking && !decorateMode) startTalk('kid'); });
-  leaveBtn.addEventListener('click', () => { if (mode === 'walk' && !talking) exitHouse(); });
+  leaveBtn.addEventListener('click', () => { if ((mode === 'walk' || mode === 'maze') && !talking) exitHouse(); });
 
-  function enterHouse(house) {
+  function enterHouseInterior(house) {
     mode = 'walk';
     activeHouse = house;
-    enterPrompt.classList.remove('show');
     houseLabelEl.textContent = house.def.name;
+    decorateBtn.style.display = '';
     player.x = DOOR.x;
     player.y = DOOR.y - 60;
     player.angle = -Math.PI/2;
@@ -2369,15 +2407,32 @@
     decorateMode = false;
     deselectDecorItem();
     decorateBar.classList.remove('show');
-    interiorEl.classList.add('show');
-    hudEl.classList.add('hide');
-    minimapCanvas.classList.add('hide');
 
     if (!hasSeenHouseTip) {
       hasSeenHouseTip = true;
       talking = true;
       houseTipEl.classList.add('show');
     }
+  }
+
+  function enterHouse(house) {
+    mode = 'maze';
+    activeHouse = house;
+    enterPrompt.classList.remove('show');
+    houseLabelEl.textContent = '🌿 Find your way to the door!';
+    decorateBtn.style.display = 'none';
+    generateMaze();
+    const start = mazeCellCenter(mazeStart.cx, mazeStart.cy);
+    player.x = start.x;
+    player.y = start.y;
+    player.angle = -Math.PI/2;
+    player.speed = 0;
+    insideTrail.length = 0;
+    walkTarget = null;
+    walkPointerId = null;
+    interiorEl.classList.add('show');
+    hudEl.classList.add('hide');
+    minimapCanvas.classList.add('hide');
   }
 
   function exitHouse() {
@@ -2802,6 +2857,63 @@
       if (distDoor < 55) {
         exitHouse();
       }
+    } else if (mode === 'maze') {
+      if (talking) return;
+      let throttle = 0, steer = 0;
+
+      if (keys['arrowup'] || keys['w']) throttle += 1;
+      if (keys['arrowdown'] || keys['s']) throttle -= 1;
+      if (keys['arrowleft'] || keys['a']) steer -= 1;
+      if (keys['arrowright'] || keys['d']) steer += 1;
+
+      if (Math.abs(joyVec.x) > 0.01 || Math.abs(joyVec.y) > 0.01) {
+        const mag = Math.min(Math.hypot(joyVec.x, joyVec.y), 1);
+        if (mag > 0.15) {
+          const targetAngle = Math.atan2(joyVec.y, joyVec.x);
+          let diff = targetAngle - player.angle;
+          while (diff > Math.PI) diff -= Math.PI*2;
+          while (diff < -Math.PI) diff += Math.PI*2;
+          steer = Math.max(-1, Math.min(1, diff * 2));
+          throttle = mag;
+        }
+      }
+
+      const boostFactorMaze = currentSpeedFactor();
+      player.speed += throttle * player.accel * boostFactorMaze;
+      player.speed *= (1 - player.friction);
+      const playerMaxMaze = player.maxSpeed * boostFactorMaze;
+      player.speed = Math.max(-playerMaxMaze/1.6, Math.min(playerMaxMaze, player.speed));
+      if (Math.abs(player.speed) > 0.05) {
+        player.angle += steer * player.turnSpeed * (player.speed > 0 ? 1 : -1) * Math.min(Math.abs(player.speed)/2, 1);
+      }
+
+      const margin = 22;
+      const mazeW = MAZE_COLS * MAZE_CELL, mazeH = MAZE_ROWS * MAZE_CELL;
+      const oldCx = Math.max(0, Math.min(MAZE_COLS - 1, Math.floor(player.x / MAZE_CELL)));
+      const oldCy = Math.max(0, Math.min(MAZE_ROWS - 1, Math.floor(player.y / MAZE_CELL)));
+      const cell = mazeGrid[oldCx] && mazeGrid[oldCx][oldCy];
+
+      let newX = player.x + Math.cos(player.angle) * player.speed;
+      let newY = player.y + Math.sin(player.angle) * player.speed;
+
+      if (cell) {
+        const newCx = Math.floor(newX / MAZE_CELL);
+        if (newCx !== oldCx && cell.walls[newCx > oldCx ? 'E' : 'W']) newX = player.x;
+        const newCy = Math.floor(newY / MAZE_CELL);
+        if (newCy !== oldCy && cell.walls[newCy > oldCy ? 'S' : 'N']) newY = player.y;
+      }
+
+      player.x = Math.max(margin, Math.min(mazeW - margin, newX));
+      player.y = Math.max(margin, Math.min(mazeH - margin, newY));
+
+      if (playerCustomization.buddy !== 'none') {
+        updateBuddyTrail(insideTrail, player);
+      }
+
+      const exitCenter = mazeCellCenter(mazeExit.cx, mazeExit.cy);
+      if (Math.hypot(player.x - exitCenter.x, player.y - exitCenter.y) < 40) {
+        enterHouseInterior(activeHouse);
+      }
     }
   }
 
@@ -2932,6 +3044,72 @@
       ctx.fillText(r.name, mx, my + 1);
       ctx.restore();
     });
+  }
+
+  function drawMaze() {
+    if (!mazeGrid.length) return;
+    const w = roomCanvas.width, h = roomCanvas.height;
+    rctx.clearRect(0, 0, w, h);
+    rctx.fillStyle = '#1b2233';
+    rctx.fillRect(0, 0, w, h);
+
+    const zoom = 1.7;
+    const viewW = w / zoom, viewH = h / zoom;
+    const mazeW = MAZE_COLS * MAZE_CELL, mazeH = MAZE_ROWS * MAZE_CELL;
+    const camX = Math.max(0, Math.min(mazeW - viewW, player.x - viewW / 2));
+    const camY = Math.max(0, Math.min(mazeH - viewH, player.y - viewH / 2));
+
+    rctx.save();
+    rctx.scale(zoom, zoom);
+    rctx.translate(-camX, -camY);
+
+    rctx.fillStyle = '#3a4a3a';
+    rctx.fillRect(0, 0, mazeW, mazeH);
+    for (let x = 0; x < MAZE_COLS; x++) {
+      for (let y = 0; y < MAZE_ROWS; y++) {
+        if ((x + y) % 2 === 0) {
+          rctx.fillStyle = 'rgba(255,255,255,0.04)';
+          rctx.fillRect(x * MAZE_CELL, y * MAZE_CELL, MAZE_CELL, MAZE_CELL);
+        }
+      }
+    }
+
+    const wallT = 12;
+    rctx.fillStyle = '#8a6a4a';
+    for (let x = 0; x < MAZE_COLS; x++) {
+      for (let y = 0; y < MAZE_ROWS; y++) {
+        const c = mazeGrid[x][y];
+        const px = x * MAZE_CELL, py = y * MAZE_CELL;
+        if (c.walls.N) rctx.fillRect(px - wallT / 2, py - wallT / 2, MAZE_CELL + wallT, wallT);
+        if (c.walls.W) rctx.fillRect(px - wallT / 2, py - wallT / 2, wallT, MAZE_CELL + wallT);
+        if (x === MAZE_COLS - 1 && c.walls.E) rctx.fillRect(px + MAZE_CELL - wallT / 2, py - wallT / 2, wallT, MAZE_CELL + wallT);
+        if (y === MAZE_ROWS - 1 && c.walls.S) rctx.fillRect(px - wallT / 2, py + MAZE_CELL - wallT / 2, MAZE_CELL + wallT, wallT);
+      }
+    }
+
+    const exitCenter = mazeCellCenter(mazeExit.cx, mazeExit.cy);
+    rctx.font = '48px sans-serif';
+    rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+    rctx.fillText('🚪', exitCenter.x, exitCenter.y);
+
+    if (playerCustomization.buddy !== 'none') {
+      rctx.fillStyle = 'rgba(0,0,0,0.2)';
+      rctx.beginPath(); rctx.ellipse(buddy.x, buddy.y + 20, 14, 5, 0, 0, Math.PI * 2); rctx.fill();
+      rctx.font = '38px sans-serif';
+      rctx.fillText(playerCustomization.buddy, buddy.x, buddy.y);
+    }
+
+    rctx.fillStyle = 'rgba(0,0,0,0.25)';
+    rctx.beginPath(); rctx.ellipse(player.x, player.y + 22, 18, 6, 0, 0, Math.PI * 2); rctx.fill();
+    rctx.save();
+    rctx.translate(player.x, player.y);
+    rctx.rotate(player.angle + Math.PI / 2);
+    rctx.font = '46px sans-serif';
+    rctx.textAlign = 'center'; rctx.textBaseline = 'middle';
+    rctx.fillText(playerCustomization.avatar, 0, 0);
+    rctx.restore();
+
+    rctx.restore();
   }
 
   function drawRoom() {
@@ -3117,7 +3295,7 @@
 
   function loop() {
     update();
-    if (mode === 'drive') drawOutside(); else drawRoom();
+    if (mode === 'drive') drawOutside(); else if (mode === 'maze') drawMaze(); else drawRoom();
     drawMinimap();
     if (selectedDecor) positionDecorToolbar();
     if (gameWon && mode === 'drive' && !winEl.classList.contains('show')) {
